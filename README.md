@@ -8,7 +8,7 @@ OMOP-CDM Extension for genomic data
 Using devtools, install genomic package in Rstudio.
 
 ```
-install.packages("devtools"
+install.packages("devtools")
 library(devtools)
 install_github("https://github.com/ABMI/G-CDM.git")
 ```
