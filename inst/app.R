@@ -261,7 +261,7 @@ shiny::shinyApp(
 
       # choose the most deleterious to plot with y being defined as the most deleterious
       most_deleterious <- as.character(table$Var1)
-      waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
+      GenVisR::waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
                 mainXlabel = TRUE, maxGenes=50, mainGrid = TRUE, mainLabelSize = 1,
                 plot_proportions = TRUE, section_heights = c(0, 400, 60))
 
