@@ -1,5 +1,6 @@
+
 check.packages("xlsx")
-check.packages("shiny")
+
 check.packages("shinydashboard")
 check.packages("SqlRender")
 check.packages("DatabaseConnector")
