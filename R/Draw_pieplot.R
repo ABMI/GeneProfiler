@@ -11,6 +11,6 @@ Draw_pieplot<-function(table){
     lbls <- as.character(table$Var1)
     pct <- round(slices/sum(slices)*100)
     lbls <- paste(lbls, pct) # add percents to labels
-    lbls <<- paste(lbls,"%",sep="") # ad % to labels
+    lbls <<- paste(lbls,"%",sep="") # add % to labels
     return(0)
 }
