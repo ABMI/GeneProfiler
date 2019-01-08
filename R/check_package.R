@@ -7,7 +7,7 @@
 #' @example check.packages("dplyr")
 
 check.packages <- function(pkg){
-    if (!(pkg %in% installed.packages()[, "Package"])){
+    if (!(pkg %in% installed.packages()[,"Package"])){
         install.packages(pkg)
         tryCatch(
             library(pkg, character.only = T)

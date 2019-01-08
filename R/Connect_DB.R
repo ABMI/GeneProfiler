@@ -21,7 +21,6 @@ Connect_DB <- function(server,ip,id,pw,schema){
                                                                      user=id,
                                                                      password=pw,
                                                                      schema=schema)
-
     #fix
     tryCatch({
         connection <<- DatabaseConnector::connect(connectionDetails)
@@ -30,4 +29,3 @@ Connect_DB <- function(server,ip,id,pw,schema){
         showModal(modalDialog(title="DB connection status","Your DB is failed to connect! ",footer = modalButton("OK")))
     })
 }
-
