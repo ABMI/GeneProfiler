@@ -61,13 +61,16 @@ shiny::shinyApp(
                         titlePanel("Overall Mutation Profile"),
 
                         sidebarPanel(
-                            actionButton(inputId = 'Show_WF', label = 'Go!'), width=2,
-                            #height means percentage of box
-                            tags$head(tags$style("#WF_Plot{height:70vh !important;}"))
+                            actionButton(inputId = 'Show_WF', label = 'Go!'),
+                            width =2
                         ),
 
                         mainPanel(
-                            plotOutput(outputId = "WF_Plot"), width=12)
+                            plotOutput(outputId = "WF_Plot", height = "700px"),
+                            width=12)
+
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_plot', label = "Download Plot")
                     )),
 
 
@@ -84,11 +87,16 @@ shiny::shinyApp(
                         ),
 
                         mainPanel(
-                            column(width = 6, plotOutput(outputId = "VariantStructualType_Plot")),
-                            column(width = 6, plotOutput(outputId = "VariantFunctionalType_Plot")),
-                            column(width = 6, tableOutput(outputId = "VariantStructual_Tbl")),
-                            column(width = 6, tableOutput(outputId = "VariantFunctional_Tbl")),
+                            box(column(plotOutput(outputId = "VariantStructualType_Plot"),width = 12),
+                                column(tableOutput(outputId = "VariantStructual_Tbl"),width = 12),width = 6),
+                            box(column(width = 12, plotOutput(outputId = "VariantFunctionalType_Plot")),
+                                column(width = 12, tableOutput(outputId = "VariantFunctional_Tbl")),width = 6),
                             width=12)
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_structual_plot', label = "Download Variant Structual Plot"),
+                        downloadButton(outputId = 'download_structual_tbl', label = "Download Variant Structual Table"),
+                        downloadButton(outputId = 'download_functional_plot', label = "Download Variant Functional Plot"),
+                        downloadButton(outputId = 'download_functional_tbl', label = "Download Variant Functional Table")
                     )),
 
 
@@ -103,11 +111,16 @@ shiny::shinyApp(
                             width=8),
 
                         mainPanel(
-                            column(width = 6, plotOutput(outputId = "Origin_Plot")),
-                            column(width = 6, plotOutput(outputId = "Pathogeny_Plot")),
-                            column(width = 6, tableOutput(outputId = "Origin_Table")),
-                            column(width = 6, tableOutput(outputId = "Pathogeny_Table")),
+                            box(column(width = 12, plotOutput(outputId = "Origin_Plot")),
+                                column(width = 12, tableOutput(outputId = "Origin_Table")),width = 6),
+                            box(column(width = 12, plotOutput(outputId = "Pathogeny_Plot")),
+                                column(width = 12, tableOutput(outputId = "Pathogeny_Table")),width = 6),
                             width=12)
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_origin_plot', label = "Download Variant Origin Plot"),
+                        downloadButton(outputId = 'download_origin_tbl', label = "Download Variant Origin Table"),
+                        downloadButton(outputId = 'download_pathogeny_plot', label = "Download Variant Pathogeny Plot"),
+                        downloadButton(outputId = 'download_pathogeny_tbl', label = "Download Variant Pathogeny Table")
                     )),
 
 
@@ -122,6 +135,8 @@ shiny::shinyApp(
 
                         mainPanel(
                             plotOutput(outputId = "GenePlot"), width=12)
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_gene_plot', label = "Download Gene Plot")
                     )),
 
 
@@ -135,6 +150,8 @@ shiny::shinyApp(
 
                         mainPanel(
                             tableOutput(outputId = "VariantTable"), width=12)
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_variant_tbl', label = "Download Variant Table")
                     )),
 
             # 3-7 Search Yours
@@ -172,6 +189,9 @@ shiny::shinyApp(
                         mainPanel(
                             plotOutput(outputId = "Custom_Result_Plot"),
                             tableOutput(outputId = "Custom_Result_Table"), width=12)
+                    ),fluidRow(
+                        downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
+                        downloadButton(outputId = 'download_custom_tbl', label = "Download Custom Table")
                     ))
 
         ))), # End of dashboardPage
@@ -180,6 +200,8 @@ shiny::shinyApp(
 
 
   server <- function(input, output, session) {
+
+
 
 
     ##### 3-1 DB Connection
@@ -214,9 +236,8 @@ shiny::shinyApp(
 
       cohort_variant <- cohort_variant[complete.cases(cohort_variant[ , c("TARGET_GENE_SOURCE_VALUE")]), ]
 
-
       # Create a data frame of random elements to plot
-      inputData <- data.frame("sample" = cohort_variant$PERSON_ID,
+      inputData <<- data.frame("sample" = cohort_variant$PERSON_ID,
                               "gene" = cohort_variant$TARGET_GENE_SOURCE_VALUE,
                               "variant_class" = cohort_variant$VARIANT_FEATURE)
       colnames(inputData) <- c('sample', 'gene', 'variant_class')
@@ -225,12 +246,21 @@ shiny::shinyApp(
       table <- table[order(-table$Freq), ]
 
       # choose the most deleterious to plot with y being defined as the most deleterious
-      most_deleterious <- as.character(table$Var1)
+      most_deleterious <<- as.character(table$Var1)
       GenVisR::waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
                 mainXlabel = TRUE, maxGenes=50, mainGrid = TRUE, mainLabelSize = 1,
                 plot_proportions = TRUE, section_heights = c(0, 400, 60))
 
     }) # End of draw.WF
+    output$download_plot <- downloadHandler(
+        filename = "WF_PLOT.pdf", content = function(file){
+            pdf(file,width = 12, height =8)
+            GenVisR::waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
+                               mainXlabel = TRUE, maxGenes=50, mainGrid = TRUE, mainLabelSize = 1,
+                               plot_proportions = TRUE, section_heights = c(0, 400, 60))
+            dev.off()
+        }
+    )
 
       output$WF_Plot <- renderPlot({draw.WF()})
 
@@ -247,10 +277,10 @@ shiny::shinyApp(
 
         Select_Structual <- table(cohort_forMT$SEQUENCE_ALTERATION)
 
-        Tbl4BarPlot <- as.data.frame(Select_Structual)
-        Draw_barplot(Tbl4BarPlot,"Structual Variant Types",input$str_selector)
+        Tbl4StructualBar <<- as.data.frame(Select_Structual)
+        Draw_barplot(Tbl4StructualBar,"Structual Variant Types",input$str_selector)
         observe({
-            updateSelectInput(session, "str_selector", choices = c("Total", as.character(Tbl4BarPlot$Var1)),selected = input$str_selector)
+            updateSelectInput(session, "str_selector", choices = c("Total", as.character(Tbl4StructualBar$Var1)),selected = input$str_selector)
         })
         })
       draw.VariantStructualTbl <- eventReactive(input$Show_VariantStructualType, {
@@ -262,11 +292,11 @@ shiny::shinyApp(
           cohort_forMT <- sql_query(sql,input)
           Select_Structual <- as.data.frame(table(cohort_forMT$SEQUENCE_ALTERATION))
           if(is.element("Total",input$str_selector)){
-              showTbl <- Select_Structual
+              showStructualTbl <- Select_Structual
           }else{
-              showTbl <- Select_Structual[Select_Structual$Var1%in%c(input$str_selector),]
+              showStructualTbl <- Select_Structual[Select_Structual$Var1%in%c(input$str_selector),]
           }
-          showTbl
+          showStructualTbl
       })# End of draw.VariantStructual
 
       ##### 3-3-2 Variant Functional Type
@@ -281,11 +311,11 @@ shiny::shinyApp(
 
           Select_Functional <- table(cohort_forMT$VARIANT_FEATURE)
 
-          Tbl4BarPlot <- as.data.frame(Select_Functional)
-          Draw_barplot(Tbl4BarPlot,"Functional Variant Types",input$func_selector)
+          Tbl4FunctionalBar <<- as.data.frame(Select_Functional)
+          Draw_barplot(Tbl4FunctionalBar,"Functional Variant Types",input$func_selector)
 
           observe({
-              updateSelectInput(session, "func_selector", choices = c("Total", as.character(Tbl4BarPlot$Var1)),selected = input$func_selector)
+              updateSelectInput(session, "func_selector", choices = c("Total", as.character(Tbl4FunctionalBar$Var1)),selected = input$func_selector)
           })
       })
 
@@ -298,12 +328,42 @@ shiny::shinyApp(
           cohort_forMT <- sql_query(sql,input)
           Select_Functional <- as.data.frame(table(cohort_forMT$VARIANT_FEATURE))
           if(is.element("Total",input$func_selector)){
-              showTbl <- Select_Functional
+              showFunctionalTbl <- Select_Functional
           }else{
-              showTbl <- Select_Functional[Select_Functional$Var1%in%c(input$func_selector),]
+              showFunctionalTbl <- Select_Functional[Select_Functional$Var1%in%c(input$func_selector),]
           }
-          showTbl
+          showFunctionalTbl
       })# End of draw.VariantFunctional
+
+      output$download_structual_plot <- downloadHandler(
+          filename <- "variant_structual.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              print(Draw_barplot(Tbl4StructualBar,"Structual Variant Types",input$str_selector))
+              dev.off()
+          }
+      )
+      output$download_structual_tbl <- downloadHandler(
+          filename = "variant_structual.csv",
+          content = function(file) {
+              write.csv(draw.VariantStructualTbl(), file)
+          }
+      )
+
+      output$download_functional_plot <- downloadHandler(
+          filename <- "variant_function.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              print(Draw_barplot(Tbl4FunctionalBar,"Functional Variant Types",input$func_selector))
+              dev.off()
+          }
+      )
+      output$download_functional_tbl <- downloadHandler(
+          filename = "variant_function.csv",
+          content = function(file) {
+              write.csv(draw.VariantFunctionalTbl(), file)
+          }
+      )
 
       output$VariantStructualType_Plot <- renderPlot({draw.VariantStructualType()})
       output$VariantFunctionalType_Plot <- renderPlot({draw.VariantFunctionalType()})
@@ -329,10 +389,20 @@ shiny::shinyApp(
         par(mar=c(2,1,1,0))
         par(oma=c(0,1,2,1))
 
-        Tbl4PiePlot <- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
-        Draw_pieplot(Tbl4PiePlot)
-        pie(slices, lbls , radius=0.6,
-            main="Variant Origin", clockwise = TRUE)
+        Tbl4OriginPie <<- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
+        Draw_pieplot(Tbl4OriginPie)
+        test <- ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
+            geom_bar(stat="identity",width=1)+
+            coord_polar("y",start = 0) +
+            ggtitle("Variant Origin")+
+            geom_col(color = 'black', width = 100)+
+            theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+            geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5))
+        print(test)
+
+
+        # pie(slices, lbls , radius=0.6,
+        #     main="Variant Origin", clockwise = TRUE)
 
       })
 
@@ -364,10 +434,17 @@ shiny::shinyApp(
           par(mar=c(2,1,1,0))
           par(oma=c(0,1,2,1))
 
-          Tbl4PiePlot <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
-          Draw_pieplot(Tbl4PiePlot)
-          pie(slices, lbls , radius=0.6,
-              main="Variant Pathogeny", clockwise = TRUE )
+          Tbl4PathogenyPie <<- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
+          Draw_pieplot(Tbl4PathogenyPie)
+          ggplot(Tbl4PathogenyPie, aes(x = "", y = Freq, fill=Var1))+
+              geom_bar(stat="identity",width=1)+
+              coord_polar("y",start = 0) +
+              ggtitle("Variant Pathogeny")+
+              geom_col(color = 'black', width = 100)+
+              theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+              geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.6))
+          # pie(slices, lbls , radius=0.6,
+          #     main="Variant Pathogeny", clockwise = TRUE )
       })
 
       draw.PathogenyTable <- eventReactive(input$Show_Pathogeny, {
@@ -383,6 +460,50 @@ shiny::shinyApp(
           Tblpathogeny <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
           Tblpathogeny
       }) # End of draw.Pathogeny
+
+      output$download_origin_plot <- downloadHandler(
+          filename <- "variant_origin.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              Draw_pieplot(Tbl4OriginPie)
+              print(ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
+                  geom_bar(stat="identity",width=1)+
+                  coord_polar("y",start = 0) +
+                  ggtitle("Variant Origin")+
+                  geom_col(color = 'black', width = 100)+
+                  theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+                  geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5)))
+              dev.off()
+          }
+      )
+      output$download_origin_tbl <- downloadHandler(
+          filename = "variant_origin.csv",
+          content = function(file) {
+              write.csv(draw.OriginTable(), file)
+          }
+      )
+
+      output$download_pathogeny_plot <- downloadHandler(
+          filename <- "variant_pathogeny.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              Draw_pieplot(Tbl4PathogenyPie)
+              print(ggplot(Tbl4PathogenyPie, aes(x = "", y = Freq, fill=Var1))+
+                  geom_bar(stat="identity",width=1)+
+                  coord_polar("y",start = 0) +
+                  ggtitle("Variant Pathogeny")+
+                  geom_col(color = 'black', width = 100)+
+                  theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+                  geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.6)))
+              dev.off()
+          }
+      )
+      output$download_pathogeny_tbl <- downloadHandler(
+          filename = "variant_pathogeny.csv",
+          content = function(file) {
+              write.csv(draw.PathogenyTable(), file)
+          }
+      )
 
       output$Pathogeny_Plot <- renderPlot({draw.PathogenyPlot()})
       output$Origin_Plot <- renderPlot({draw.OriginPlot()})
@@ -406,11 +527,11 @@ shiny::shinyApp(
         cohort_forPathogeny <- sql_query(sql,input)
         # View(cohort_forPathogeny)
 
-        cohort_forGenes <<- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
+        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
                                                  c('Pathogenic/Likely pathogenic', 'Drug response') &
                                                  cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
         Tbl4Gene <- as.data.frame(table(cohort_forGenes$TARGET_GENE_SOURCE_VALUE))
-        Tbl4Gene <- Tbl4Gene[order(-Tbl4Gene$Freq),]
+        Tbl4Gene <<- Tbl4Gene[order(-Tbl4Gene$Freq),]
 
         par(mar=c(0,0,1,0))
         par(oma=c(0,0,2,0))
@@ -420,11 +541,27 @@ shiny::shinyApp(
         ggplot(Tbl4Gene, aes(x = "", y = Freq, fill=Var1))+
             geom_bar(stat="identity",width=1)+
             coord_polar("y",start = 0) +
+            geom_col(color = 'black', width = 100)+
             ggtitle("Proportion of Pathogeny & Drug Response Genes")+
             theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
             geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5))
 
       }) # End of draw.GenePlot
+      output$download_gene_plot <- downloadHandler(
+          filename <- "variant_gene.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              Draw_pieplot(Tbl4Gene)
+              print(ggplot(Tbl4Gene, aes(x = "", y = Freq, fill=Var1))+
+                  geom_bar(stat="identity",width=1)+
+                  coord_polar("y",start = 0) +
+                  geom_col(color = 'black', width = 100)+
+                  ggtitle("Proportion of Pathogeny & Drug Response Genes")+
+                  theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+                  geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5)))
+              dev.off()
+          }
+      )
 
       output$GenePlot <- renderPlot({draw.GenePlot()})
 
@@ -441,7 +578,7 @@ shiny::shinyApp(
         LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
         cohort_forPathogeny <- sql_query(sql,input)
 
-        cohort_forGenes <<- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
+        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
                                                   c('Pathogenic/Likely pathogenic', 'Drug response') &
                                                   cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
 
@@ -453,6 +590,13 @@ shiny::shinyApp(
 
 
       }) # End of draw.VariantTable
+
+      output$download_variant_tbl <- downloadHandler(
+          filename <- "variant.csv" ,
+          content = function(file){
+              write.csv(draw.VariantTable(), file)
+          }
+      )
 
       output$VariantTable <- renderTable({draw.VariantTable()})
 
@@ -480,7 +624,7 @@ shiny::shinyApp(
 
         cohort_label = paste0(input$CstmGene, '_', input$CstmHGVSp)
 
-        Tbl4Cstm <- data.frame('Var1'=c(cohort_label, 'Others'), 'Freq'=c(cohort, not_cohort))
+        Tbl4Cstm <<- data.frame('Var1'=c(cohort_label, 'Others'), 'Freq'=c(cohort, not_cohort))
 
         graphics.off()
         par(mar=c(0,0,1,0))
@@ -523,6 +667,23 @@ shiny::shinyApp(
 
       }) # End of draw.Custom_Result_Table
 
+      output$download_custom_plot <- downloadHandler(
+          filename <- "custom.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              Draw_pieplot(Tbl4Cstm)
+              print(pie(slices, labels = lbls, clockwise = TRUE, radius=1,
+                  main="Proportion of Patients You Choose",
+                  col=(c('orange', 'ivory'))))
+              dev.off()
+          }
+      )
+      output$download_custom_tbl <- downloadHandler(
+          filename <- "custom.csv" ,
+          content = function(file){
+              write.csv(draw.Custom_Result_Table(), file)
+          }
+      )
 
       output$Custom_Result_Plot <- renderPlot({draw.Custom_Result_Plot()})
       output$Custom_Result_Table <- renderTable({draw.Custom_Result_Table()})
