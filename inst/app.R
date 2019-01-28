@@ -1,6 +1,7 @@
 
 check.packages("xlsx")
 
+check.packages("shinyjs")
 check.packages("shinydashboard")
 check.packages("SqlRender")
 check.packages("DatabaseConnector")
@@ -74,16 +75,17 @@ shiny::shinyApp(
                     )),
 
 
-            # 3-3 Mutation Type
+            # 3-3 Variant Type
             tabItem(tabName = "VariantType",
                     fluidRow(
                         titlePanel("Variant Type"),
 
                         sidebarPanel(
-                            selectInput("str_selector", "Structual Type : ", "Total", selected = "Total", multiple = T),
-                            actionButton(inputId = 'Show_VariantStructualType', label = 'Go!'),
-                            selectInput("func_selector", "Functional Type : ", "Total", selected = "Total", multiple = T),
-                            actionButton(inputId = 'Show_VariantFunctionalType', label = 'Go!')
+                            box(column(checkboxGroupInput("str_selector","Structual Type : ", selected = "Total"),
+                            actionButton(inputId = 'Show_VariantStructualType', label = 'Go!'),width = 6)),
+                            box(column(checkboxGroupInput("func_selector", "Functional Type : ", selected = "Total"),
+                            actionButton(inputId = 'Show_VariantFunctionalType', label = 'Go!'),width =6)),
+                            width = 12
                         ),
 
                         mainPanel(
@@ -161,37 +163,45 @@ shiny::shinyApp(
 
                         sidebarPanel(
 
-                            textInput('CstmGene', 'Gene Symbol', value = 'EGFR'),
+                            column(
+                            column(12,selectInput(inputId = 'CstmGene', 'Gene Symbol', choices = NULL , multiple = T),
+                            actionButton(inputId = 'Add_Gene', label = 'Add!'),
+                            uiOutput(outputId = "Custom_HVGSp")),
 
-                            textInput('CstmHGVSp', 'HVGSp', value = 'p.Leu858Arg'),
+                            column(12,selectInput(inputId = 'CstmHGVSp', 'HVGSp', choices = NULL , multiple = T),
+                            actionButton(inputId = 'Add_HVGSp', label = 'Add!'),
+                            uiOutput(outputId = "Custom_UI")),
 
-                            # selectInput('CstmGene', 'Gene Symbol', multiple = TRUE,
-                            #             choices = c("ATM", "ATR", "BRAF", "BRCA1", "BRCA2", "EGFR", "KRAS",
-                            #                         "MET", "MTOR", "NRAS", "PIK3CA", "PTEN", "TP53")),
-                            #
-                            # selectInput('CstmSeqAlt', 'Sequence Alteration', multiple = TRUE,
-                            #             choices = c("Amplification", "DEL", "Deletion", "INS", "MIXED", "MNP", "SNP", "TRA")),
-                            #
-                            # selectInput('CstmVarFtr', 'Variant Feature', multiple = TRUE,
-                            #             choices = c("Frameshift", "Inframe", "Intron", "Missense",
-                            #                         "Nonsense", "Other", "Splice", "Synonymous", "UTR")),
-                            #
-                            # selectInput('CstmOrigin', 'Variant Origin', multiple = TRUE,
-                            #             choices = c("germline", "somatic", "unknown")),
-                            #
-                            # selectInput('CstmPG', 'Variant Pathogeny', multiple = TRUE,
-                            #             choices = c("Benign", "Benign/Likely benign", "Conflict pathogenicity",
-                            #                         "Drug response", "Likely benign", "Pathogenic/Likely pathogenic",
-                            #                         "Unknown significance")),
-
-                            actionButton(inputId = 'Show_Custom', label = 'Go!'), width=5),
+                            actionButton(inputId = 'Show_Custom', label = 'Go!'), width=5)
+                            ,width = 12),
 
                         mainPanel(
-                            plotOutput(outputId = "Custom_Result_Plot"),
-                            tableOutput(outputId = "Custom_Result_Table"), width=12)
+                            # plotOutput(outputId = "Custom_Result_Plot"),
+                            tableOutput(outputId = "Custom_Result_Table"),width =12)
                     ),fluidRow(
-                        downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
+                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
                         downloadButton(outputId = 'download_custom_tbl', label = "Download Custom Table")
+                    )),
+
+            # 3-8 Search Graph
+            tabItem(tabName = "Graph",
+                    fluidRow(
+                        titlePanel("Explore Your Graph!"),
+
+                        sidebarPanel(
+                            fileInput(inputId = "file1", "Choose CSV File",
+                                      accept = c(
+                                          "text/csv",
+                                          "text/comma-separated-values,text/plain",
+                                          ".csv"))
+                            ,width = 12),
+
+                        mainPanel(
+                            # plotOutput(outputId = "Custom_Result_Plot"),
+                            tableOutput(outputId = "Custom_Result_Graph"),width =12)
+                    ),fluidRow(
+                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
+                        downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot")
                     ))
 
         ))), # End of dashboardPage
@@ -210,7 +220,44 @@ shiny::shinyApp(
         #Reconnect other DB
         Connect_DB("sql server", input$ip, input$user, input$pw, input$schema)
     })
-    output$DB_Connect <- renderText({Connect.DB()})
+    Update.UI <- eventReactive(input$db_load, {
+        sql <- "SELECT A.sequence_alteration
+              FROM (SELECT * FROM @schema.dbo.variant_occurrence
+            WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
+            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+        cohort_forMT <- sql_query(sql,input)
+        Select_Structual <- table(cohort_forMT$SEQUENCE_ALTERATION)
+        Tbl4StructualBar <- as.data.frame(Select_Structual)
+
+        sql <- "SELECT A.variant_feature
+              FROM (SELECT * FROM @schema.dbo.variant_occurrence
+        WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
+        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+        cohort_forMT <- sql_query(sql,input)
+        Select_Functional <- table(cohort_forMT$VARIANT_FEATURE)
+        Tbl4FunctionalBar <- as.data.frame(Select_Functional)
+
+        updateCheckboxGroupInput(session, "str_selector", choices = c("Total", as.character(Tbl4StructualBar$Var1)),selected = input$str_selector)
+        updateCheckboxGroupInput(session, "func_selector", choices = c("Total", as.character(Tbl4FunctionalBar$Var1)),selected = input$func_selector)
+
+        sql <- "SELECT B.target_gene_source_value
+        FROM (SELECT * FROM @schema.dbo.variant_occurrence
+        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+        CustomizedTbl <- sql_query(sql,input)
+
+        updateSelectInput(session, "CstmGene", choices = c(as.character(CustomizedTbl$TARGET_GENE_SOURCE_VALUE)),selected = 'EGFR')
+        # updateSelectInput(session, "CstmHGVSp", choices = c(as.character(CustomizedTbl$HGVS_P)), selected = 'p.Leu858Arg')
+        removeModal()
+        showModal(modalDialog(title="Load data","Initializing Complete.",footer = modalButton("OK")))
+    })
+
+    output$DB_Connect <- renderText({Connect.DB()
+        Update.UI()
+        })
+
+
 
     ##### 3-2 WaterFall Plot
     draw.WF <- eventReactive(input$Show_WF, {
@@ -254,7 +301,7 @@ shiny::shinyApp(
     }) # End of draw.WF
     output$download_plot <- downloadHandler(
         filename = "WF_PLOT.pdf", content = function(file){
-            pdf(file,width = 12, height =8)
+            pdf(file,width = 12, height =10)
             GenVisR::waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
                                mainXlabel = TRUE, maxGenes=50, mainGrid = TRUE, mainLabelSize = 1,
                                plot_proportions = TRUE, section_heights = c(0, 400, 60))
@@ -277,11 +324,11 @@ shiny::shinyApp(
 
         Select_Structual <- table(cohort_forMT$SEQUENCE_ALTERATION)
 
-        Tbl4StructualBar <<- as.data.frame(Select_Structual)
+        Tbl4StructualBar <- as.data.frame(Select_Structual)
         Draw_barplot(Tbl4StructualBar,"Structual Variant Types",input$str_selector)
-        observe({
-            updateSelectInput(session, "str_selector", choices = c("Total", as.character(Tbl4StructualBar$Var1)),selected = input$str_selector)
-        })
+        # observe({
+        #     updateCheckboxGroupInput(session, "str_selector", choices = c("Total", as.character(Tbl4StructualBar$Var1)),selected = input$str_selector)
+        # })
         })
       draw.VariantStructualTbl <- eventReactive(input$Show_VariantStructualType, {
 
@@ -311,12 +358,12 @@ shiny::shinyApp(
 
           Select_Functional <- table(cohort_forMT$VARIANT_FEATURE)
 
-          Tbl4FunctionalBar <<- as.data.frame(Select_Functional)
+          Tbl4FunctionalBar <- as.data.frame(Select_Functional)
           Draw_barplot(Tbl4FunctionalBar,"Functional Variant Types",input$func_selector)
 
-          observe({
-              updateSelectInput(session, "func_selector", choices = c("Total", as.character(Tbl4FunctionalBar$Var1)),selected = input$func_selector)
-          })
+          # observe({
+          #     updateCheckboxGroupInput(session, "func_selector", choices = c("Total", as.character(Tbl4FunctionalBar$Var1)),selected = input$func_selector)
+          # })
       })
 
       draw.VariantFunctionalTbl <- eventReactive(input$Show_VariantFunctionalType, {
@@ -475,6 +522,7 @@ shiny::shinyApp(
                   geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5)))
               dev.off()
           }
+          ,contentType = "pdf"
       )
       output$download_origin_tbl <- downloadHandler(
           filename = "variant_origin.csv",
@@ -569,7 +617,7 @@ shiny::shinyApp(
 
       draw.VariantTable <- eventReactive(input$Show_VariantTable, {
 
-        sql <- "SELECT B.target_gene_source_value, A.variant_exon_number,
+        sql <- "SELECT A.person_id as int, B.target_gene_source_value, A.variant_exon_number,
         A.hgvs_p, A.sequence_alteration, A.variant_feature,
         C.variant_origin, C.variant_pathogeny
         FROM (SELECT * FROM @schema.dbo.variant_occurrence
@@ -583,7 +631,7 @@ shiny::shinyApp(
                                                   cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
 
 
-        colnames(cohort_forGenes) <- c('Gene', 'Exon', 'HGVSp',
+        colnames(cohort_forGenes) <- c('Person Id', 'Gene', 'Exon', 'HGVSp',
                                        'Sequence Alteration', 'Variant Feature', 'Origin', 'Pathogeny')
         cohort_forGenes <- cohort_forGenes[order(cohort_forGenes$Gene),]
         cohort_forGenes
@@ -598,86 +646,70 @@ shiny::shinyApp(
           }
       )
 
-      output$VariantTable <- renderTable({draw.VariantTable()})
+      output$VariantTable <- renderTable({draw.VariantTable()}, digits = 0)
 
 
 
       ##### 3-7 Search
 
-      draw.Custom_Result_Plot <- eventReactive(input$Show_Custom, {
-
-        sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
-                A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
-                FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
-        CustomizedTbl <- sql_query(sql,input)
-
-        total = length(unique(CustomizedTbl$PERSON_ID))
-
-        CustomizedTbl <- CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE %in% input$CstmGene
-                                        & CustomizedTbl$HGVS_P %in% input$CstmHGVSp, ]
-
-        cohort = length(unique(CustomizedTbl$PERSON_ID))
-        not_cohort = total-cohort
-
-        cohort_label = paste0(input$CstmGene, '_', input$CstmHGVSp)
-
-        Tbl4Cstm <<- data.frame('Var1'=c(cohort_label, 'Others'), 'Freq'=c(cohort, not_cohort))
-
-        graphics.off()
-        par(mar=c(0,0,1,0))
-        par(oma=c(0,0,1,0))
-
-        Draw_pieplot(Tbl4Cstm)
-
-        pie(slices, labels = lbls, clockwise = TRUE, radius=1,
-            main="Proportion of Patients You Choose",
-            col=(c('orange', 'ivory')))
-
-
-      }) # End of draw.Custom_Result_Plot
-
-
-
       # Custom_Result_Table
+      draw.hgvs_p <- eventReactive(input$Add_Gene, {
+      sql <- paste0("SELECT distinct(A.person_id), A.hgvs_p
+                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
+                    WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+                    LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                    LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
+      CustomizedTbl <- sql_query(sql,input)
+
+          updateSelectInput(session, "CstmHGVSp", choices = c(as.character(unique(CustomizedTbl$HGVS_P))))
+      })
+
+
+      load.genelist <- eventReactive(input$Add_HVGSp, {
+          if(length(input$CstmHGVSp < 0)){
+
+          }
+          temp <- paste0(input$CstmGene , input$CstmHGVSp, collapse = "\n")
+      })
+
       draw.Custom_Result_Table <- eventReactive(input$Show_Custom, {
 
-        sql <- "SELECT B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
-                A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
-                FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
-        CustomizedTbl <- sql_query(sql,input)
+          sql <- paste0("SELECT A.person_id, B.target_gene_concept_id, A.hgvs_p
+                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
+                        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+                        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
+          # sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
+          #   A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
+          #   FROM (SELECT * FROM @schema.dbo.variant_occurrence
+          #   WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+          #   LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+          #   LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+          #   )
 
-        #dim(CustomizedTbl)
-        #CstmGene = 'EGFR'
-        #CstGene = NA
-        #CstmHGVSp = 'p.Leu858Arg'
-        #CstmHGVSp = NA
+          CustomizedTbl <- sql_query(sql,input)
 
-        CustomizedTbl <- CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE %in% input$CstmGene
-                                        & CustomizedTbl$HGVS_P %in% input$CstmHGVSp, ]
+          total <- length(unique(CustomizedTbl$person_id))
+          target <- length(unique(CustomizedTbl))
 
-        colnames(CustomizedTbl) <- c('Gene', 'HGVSc', 'HGVSp',
-                                     'Structural Change', 'Functional Change', 'Origin', 'Pathogeny')
-        CustomizedTbl
+          #dim(CustomizedTbl)
+          #CstmGene = 'EGFR'
+          #CstGene = NA
+          #CstmHGVSp = 'p.Leu858Arg'
+          #CstmHGVSp = NA
+
+          CustomizedTbl <- CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE %in% input$CstmGene
+                                         & CustomizedTbl$HGVS_P %in% input$CstmHGVSp, ]
+
+          colnames(CustomizedTbl) <- c('Person ID','Gene', 'HGVSc')
+          CustomizedTbl
 
       }) # End of draw.Custom_Result_Table
 
-      output$download_custom_plot <- downloadHandler(
-          filename <- "custom.pdf" ,
-          content = function(file){
-              pdf(file, width = 12, height = 6)
-              Draw_pieplot(Tbl4Cstm)
-              print(pie(slices, labels = lbls, clockwise = TRUE, radius=1,
-                  main="Proportion of Patients You Choose",
-                  col=(c('orange', 'ivory'))))
-              dev.off()
-          }
-      )
+      output$Custom_HVGSp <- renderUI({draw.hgvs_p()})
+      output$Custom_UI <- renderUI({load.genelist()})
+      output$Custom_Result_Table <- renderTable({draw.Custom_Result_Table()},digits = 0)
+
       output$download_custom_tbl <- downloadHandler(
           filename <- "custom.csv" ,
           content = function(file){
@@ -685,10 +717,7 @@ shiny::shinyApp(
           }
       )
 
-      output$Custom_Result_Plot <- renderPlot({draw.Custom_Result_Plot()})
-      output$Custom_Result_Table <- renderTable({draw.Custom_Result_Table()})
-
-      onSessionEnded(function(){
+          onSessionEnded(function(){
           message("Disconnect server.")
           DatabaseConnector::disconnect(connection)
           message("Genomic closed.")
