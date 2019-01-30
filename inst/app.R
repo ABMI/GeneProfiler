@@ -45,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP")
-                            ,textInput("user","USER")
-                            ,passwordInput("pw","PASSWORD")
+                            textInput("ip","IP","128.1.99.58")
+                            ,textInput("user","USER","imblock")
+                            ,passwordInput("pw","PASSWORD","mirKJH09!@")
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -210,8 +210,27 @@ shiny::shinyApp(
                         titlePanel("Explore Your Graph!"),
 
                         sidebarPanel(
-                            textInput(inputId = "Query_Field", label = "Upload Query")
-                            ,actionButton(inputId = 'Show_Graph', label = 'Upload!')
+                            textAreaInput(inputId = "Query_Field",label = "Target Query", value = "
+                                        SELECT B.target_gene_source_value+'_'+A.hgvs_p , count(A.person_id) as input_institution_name
+                                        FROM (SELECT * FROM @schema.dbo.variant_occurrence
+                                          WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+                                          LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                                          LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
+                                          WHERE (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Leu858Arg')
+or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Thr790Met')
+or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Leu861Gln')
+or (B.target_gene_source_value = 'EGFR' and A.hgvs_p like 'p.Gly719%')
+or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Ser768Ile')
+or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gly12%')
+or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gly13%')
+or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gln61%')
+or (B.target_gene_source_value = 'PIK3CA' and A.hgvs_p like 'p.His1047%')
+or (B.target_gene_source_value = 'BRAF' and A.hgvs_p = 'p.Val600Glu')
+or (B.target_gene_source_value = 'NRAS' and A.hgvs_p = 'p.Gln61Lys')
+GROUP BY B.target_gene_source_value, A.hgvs_p
+ORDER BY B.target_gene_source_value+'_'+A.hgvs_p")
+                            # textOutput(outputId = "Query_Field", label = "Target Query")
+                            ,actionButton(inputId = 'Show_Query', label = 'GO!')
                             ,width = 12),
 
                         mainPanel(
@@ -680,7 +699,8 @@ shiny::shinyApp(
                     WHERE B.target_gene_source_value = '",input$CstmGene,"'")
               CustomizedTbl <- sql_query(sql,input)
 
-              updateSelectInput(session, "CstmHGVSp", choices = c(as.character(unique(CustomizedTbl$HGVS_P))))
+              updateSelectInput(session, "CstmHGVSp", choices = unique(CustomizedTbl$HGVS_P))
+
           }
       })
 
@@ -734,12 +754,8 @@ shiny::shinyApp(
           #CstmHGVSp = 'p.Leu858Arg'
           #CstmHGVSp = NA
 
-
-          # CustomizedTbl
-
       }) # End of draw.Custom_Result_Table
-
-      output$Custom_HVGSp <- renderUI({draw.hgvs_p()})
+      output$Custom_HVGSp <- renderUI(draw.hgvs_p())
       output$Custom_UI <- renderText({load.genelist()})
       output$Custom_Result_Table <- renderTable(draw.Custom_Result_Table(),digits = 2)
 
@@ -754,12 +770,10 @@ shiny::shinyApp(
 
       draw.Graph <- eventReactive(input$Show_Graph, {
           tbl <- read.xlsx(input$file1$datapath,sheetName = 'Sheet1')
-          # tbls <- read.xlsx('C:/Users/K.JunHyeong/Documents/R project/genomic/test.xlsx',sheetName = 'Sheet1')
           tblss<<-melt(tbl, id.vars = "NA.")
           ggplot(tblss, aes(variable,value, fill = NA.)) +
               geom_bar(stat="identity", position="dodge") +
               coord_flip()
-
 
       }) # End of draw.VariantTable
 
@@ -770,23 +784,25 @@ shiny::shinyApp(
               print(ggplot(tblss, aes(variable,value, fill = NA.)) +
                   geom_bar(stat="identity", position="dodge") +
                   coord_flip())
-              # Draw_pieplot(Tbl4Gene)
-              # print(ggplot(Tbl4Gene, aes(x = "", y = Freq, fill=Var1))+
-              #           geom_bar(stat="identity",width=1)+
-              #           coord_polar("y",start = 0) +
-              #           geom_col(color = 'black', width = 100)+
-              #           ggtitle("Proportion of Pathogeny & Drug Response Genes")+
-              #           theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
-              #           geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5)))
               dev.off()
           }
       )
 
       output$Custom_Result_Graph <- renderPlot({draw.Graph()})
 
-
       #### 3-9 Query
+      draw.target <- eventReactive(input$Show_Query, {
+          targetTbl <- sql_query(input$Query_Field, input)
+          targetTbl
+      })
 
+      output$download_query_table <- downloadHandler(
+          filename <- "queryTable.csv" ,
+          content = function(file){
+              write.csv(draw.target(), file, col.names = F)
+          }
+      )
+      output$Custom_Query_Table <- renderTable(draw.target())
           onSessionEnded(function(){
           message("Disconnect server.")
           DatabaseConnector::disconnect(connection)
