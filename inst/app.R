@@ -16,7 +16,7 @@ shiny::shinyApp(
 
   # UI Definition
 
-  ui <- dashboardPage(
+  ui = dashboardPage(
 
     #1
     dashboardHeader(title='GeneProfiler'),
@@ -28,7 +28,8 @@ shiny::shinyApp(
                                  menuItem('Pathogeny', tabName='PathogenyPlot'),
                                  menuItem('Gene', tabName='GenePlot'),
                                  menuItem('Variant', tabName='VariantTable'),
-                                 menuItem('Search Yours', tabName='Search')
+                                 menuItem('Search Yours', tabName='Search'),
+                                 menuItem('Graph', tabName='Graph')
                                  )),
 
     #3
@@ -44,8 +45,8 @@ shiny::shinyApp(
                         sidebarPanel(
                             #input text to db information
                             textInput("ip","IP", "128.1.99.58")
-                            ,textInput("user","USER", 'ssj')
-                            ,passwordInput("pw","PASSWORD", 'ssj1225')
+                            ,textInput("user","USER", 'imblock')
+                            ,passwordInput("pw","PASSWORD", 'mirKJH09!@')
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -193,6 +194,16 @@ shiny::shinyApp(
                                       accept = c(
                                           "text/csv",
                                           "text/comma-separated-values,text/plain",
+                                          ".csv")),
+                            fileInput(inputId = "file2", "Choose CSV File",
+                                      accept = c(
+                                          "text/csv",
+                                          "text/comma-separated-values,text/plain",
+                                          ".csv")),
+                            fileInput(inputId = "file3", "Choose CSV File",
+                                      accept = c(
+                                          "text/csv",
+                                          "text/comma-separated-values,text/plain",
                                           ".csv"))
                             ,width = 12),
 
@@ -209,7 +220,7 @@ shiny::shinyApp(
 
 
 
-  server <- function(input, output, session) {
+  server = function(input, output, session) {
 
 
 
@@ -654,14 +665,19 @@ shiny::shinyApp(
 
       # Custom_Result_Table
       draw.hgvs_p <- eventReactive(input$Add_Gene, {
-      sql <- paste0("SELECT distinct(A.person_id), A.hgvs_p
+          if(length(input$CstmGene)>1){
+              updateSelectInput(session, "CstmHGVSp", choices = NULL)
+          }else{
+              sql <- paste0("SELECT distinct(B.target_gene_source_value), A.hgvs_p
                     FROM (SELECT * FROM @schema.dbo.variant_occurrence
                     WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
                     LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                    LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
-      CustomizedTbl <- sql_query(sql,input)
+                    LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
+                    WHERE B.target_gene_source_value = '",input$CstmGene,"'")
+              CustomizedTbl <- sql_query(sql,input)
 
-          updateSelectInput(session, "CstmHGVSp", choices = c(as.character(unique(CustomizedTbl$HGVS_P))))
+              updateSelectInput(session, "CstmHGVSp", choices = c(as.character(unique(CustomizedTbl$HGVS_P))))
+          }
       })
 
 
@@ -673,8 +689,7 @@ shiny::shinyApp(
       })
 
       draw.Custom_Result_Table <- eventReactive(input$Show_Custom, {
-
-          sql <- paste0("SELECT A.person_id, B.target_gene_concept_id, A.hgvs_p
+          sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_p
                     FROM (SELECT * FROM @schema.dbo.variant_occurrence
                         WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
                         LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
@@ -686,29 +701,37 @@ shiny::shinyApp(
           #   LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
           #   LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
           #   )
+          CustomizedTbl <<- unique(sql_query(sql,input))
+          total <- length(unique(CustomizedTbl$PERSON_ID))
+          getcount <- function(gene, hgvsp){
+              unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
+          }
+          # count <- length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%'EGFR' & CustomizedTbl$HGVS_P%in%temp,]$PERSON_ID))
+          # CustomizedTbl[CustomizedTbl$HGVS_P%in%temp[1],]
+          # data.frame('EGFR', temp, nrow(CustomizedTbl[CustomizedTbl$HGVS_P%in%temp,]) )
+          resultTbl <- data.frame(input$CstmGene, input$CstmHGVSp,  getcount(input$CstmGene, input$CstmHGVSp))
+          colnames(resultTbl) <- c('Gene', 'HGVSp','Count')
+          resultTbl
+          # selected <<- length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%input$CstmGene & CustomizedTbl$HGVS_P%in%input$CstmHGVSp,]$PERSON_ID))
 
-          CustomizedTbl <- sql_query(sql,input)
 
-          total <- length(unique(CustomizedTbl$person_id))
-          target <- length(unique(CustomizedTbl))
+          # rbind(selected, length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%input$CstmGene & CustomizedTbl$HGVS_P%in%input$CstmHGVSp,]$PERSON_ID)))
 
+          # length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%"EGFR" & CustomizedTbl$HGVS_P%in%"p.Ala147Thr",]$PERSON_ID))
           #dim(CustomizedTbl)
           #CstmGene = 'EGFR'
           #CstGene = NA
           #CstmHGVSp = 'p.Leu858Arg'
           #CstmHGVSp = NA
 
-          CustomizedTbl <- CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE %in% input$CstmGene
-                                         & CustomizedTbl$HGVS_P %in% input$CstmHGVSp, ]
 
-          colnames(CustomizedTbl) <- c('Person ID','Gene', 'HGVSc')
-          CustomizedTbl
+          # CustomizedTbl
 
       }) # End of draw.Custom_Result_Table
 
       output$Custom_HVGSp <- renderUI({draw.hgvs_p()})
-      output$Custom_UI <- renderUI({load.genelist()})
-      output$Custom_Result_Table <- renderTable({draw.Custom_Result_Table()},digits = 0)
+      output$Custom_UI <- renderPrint({load.genelist()})
+      output$Custom_Result_Table <- renderTable(draw.Custom_Result_Table(),digits = 0)
 
       output$download_custom_tbl <- downloadHandler(
           filename <- "custom.csv" ,
@@ -716,6 +739,35 @@ shiny::shinyApp(
               write.csv(draw.Custom_Result_Table(), file)
           }
       )
+
+      ##### 3-8 Graph
+
+      draw.Graph <- eventReactive(input$Graph, {
+          read.csv(input$file1)
+          input$file2
+          input$file3
+
+
+
+      }) # End of draw.VariantTable
+
+      output$download_custom_plot <- downloadHandler(
+          filename <- "_plot.pdf" ,
+          content = function(file){
+              pdf(file, width = 12, height = 6)
+              # Draw_pieplot(Tbl4Gene)
+              # print(ggplot(Tbl4Gene, aes(x = "", y = Freq, fill=Var1))+
+              #           geom_bar(stat="identity",width=1)+
+              #           coord_polar("y",start = 0) +
+              #           geom_col(color = 'black', width = 100)+
+              #           ggtitle("Proportion of Pathogeny & Drug Response Genes")+
+              #           theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
+              #           geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5)))
+              dev.off()
+          }
+      )
+
+      output$VariantTable <- renderTable({draw.VariantTable()}, digits = 0)
 
           onSessionEnded(function(){
           message("Disconnect server.")
