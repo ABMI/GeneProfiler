@@ -29,7 +29,8 @@ shiny::shinyApp(
                                  menuItem('Gene', tabName='GenePlot'),
                                  menuItem('Variant', tabName='VariantTable'),
                                  menuItem('Search Yours', tabName='Search'),
-                                 menuItem('Graph', tabName='Graph')
+                                 menuItem('Graph', tabName='Graph'),
+                                 menuItem('Query', tabName='Query')
                                  )),
 
     #3
@@ -44,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP", "128.1.99.58")
-                            ,textInput("user","USER", 'imblock')
-                            ,passwordInput("pw","PASSWORD", 'mirKJH09!@')
+                            textInput("ip","IP")
+                            ,textInput("user","USER")
+                            ,passwordInput("pw","PASSWORD")
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -164,23 +165,20 @@ shiny::shinyApp(
 
                         sidebarPanel(
 
-                            column(
                             column(12,selectInput(inputId = 'CstmGene', 'Gene Symbol', choices = NULL , multiple = T),
                             actionButton(inputId = 'Add_Gene', label = 'Add!'),
                             uiOutput(outputId = "Custom_HVGSp")),
-
                             column(12,selectInput(inputId = 'CstmHGVSp', 'HVGSp', choices = NULL , multiple = T),
                             actionButton(inputId = 'Add_HVGSp', label = 'Add!'),
                             uiOutput(outputId = "Custom_UI")),
 
-                            actionButton(inputId = 'Show_Custom', label = 'Go!'), width=5)
+
+                            actionButton(inputId = 'Show_Custom', label = 'Go!')
                             ,width = 12),
 
                         mainPanel(
-                            # plotOutput(outputId = "Custom_Result_Plot"),
                             tableOutput(outputId = "Custom_Result_Table"),width =12)
                     ),fluidRow(
-                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
                         downloadButton(outputId = 'download_custom_tbl', label = "Download Custom Table")
                     )),
 
@@ -190,29 +188,38 @@ shiny::shinyApp(
                         titlePanel("Explore Your Graph!"),
 
                         sidebarPanel(
-                            fileInput(inputId = "file1", "Choose CSV File",
-                                      accept = c(
-                                          "text/csv",
-                                          "text/comma-separated-values,text/plain",
-                                          ".csv")),
-                            fileInput(inputId = "file2", "Choose CSV File",
-                                      accept = c(
-                                          "text/csv",
-                                          "text/comma-separated-values,text/plain",
-                                          ".csv")),
-                            fileInput(inputId = "file3", "Choose CSV File",
+                            fileInput(inputId = "file1", "Choose File",
                                       accept = c(
                                           "text/csv",
                                           "text/comma-separated-values,text/plain",
                                           ".csv"))
+                            ,actionButton(inputId = 'Show_Graph', label = 'Go!')
                             ,width = 12),
 
                         mainPanel(
                             # plotOutput(outputId = "Custom_Result_Plot"),
-                            tableOutput(outputId = "Custom_Result_Graph"),width =12)
+                            plotOutput(outputId = "Custom_Result_Graph"),width =12)
                     ),fluidRow(
                         # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
                         downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot")
+                    )),
+
+            # 3-9 Search Query
+            tabItem(tabName = "Query",
+                    fluidRow(
+                        titlePanel("Explore Your Graph!"),
+
+                        sidebarPanel(
+                            textInput(inputId = "Query_Field", label = "Upload Query")
+                            ,actionButton(inputId = 'Show_Graph', label = 'Upload!')
+                            ,width = 12),
+
+                        mainPanel(
+                            # plotOutput(outputId = "Custom_Result_Plot"),
+                            tableOutput(outputId = "Custom_Query_Table"),width =12)
+                    ),fluidRow(
+                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
+                        downloadButton(outputId = 'download_query_table', label = "Download query table")
                     ))
 
         ))), # End of dashboardPage
@@ -221,9 +228,6 @@ shiny::shinyApp(
 
 
   server = function(input, output, session) {
-
-
-
 
     ##### 3-1 DB Connection
     Connect.DB <- eventReactive(input$db_load, {
@@ -666,7 +670,7 @@ shiny::shinyApp(
       # Custom_Result_Table
       draw.hgvs_p <- eventReactive(input$Add_Gene, {
           if(length(input$CstmGene)>1){
-              updateSelectInput(session, "CstmHGVSp", choices = NULL)
+              updateSelectInput(session, "CstmHGVSp", choices = "" , selected = "")
           }else{
               sql <- paste0("SELECT distinct(B.target_gene_source_value), A.hgvs_p
                     FROM (SELECT * FROM @schema.dbo.variant_occurrence
@@ -680,44 +684,50 @@ shiny::shinyApp(
           }
       })
 
-
       load.genelist <- eventReactive(input$Add_HVGSp, {
-          if(length(input$CstmHGVSp < 0)){
-
-          }
           temp <- paste0(input$CstmGene , input$CstmHGVSp, collapse = "\n")
       })
 
       draw.Custom_Result_Table <- eventReactive(input$Show_Custom, {
-          sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_p
+          if(length(input$CstmGene)>1){
+              sql <- paste0("SELECT A.person_id, B.target_gene_source_value
                     FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
-          # sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
-          #   A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
-          #   FROM (SELECT * FROM @schema.dbo.variant_occurrence
-          #   WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-          #   LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-          #   LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
-          #   )
-          CustomizedTbl <<- unique(sql_query(sql,input))
-          total <- length(unique(CustomizedTbl$PERSON_ID))
-          getcount <- function(gene, hgvsp){
-              unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
+                            WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+                            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                            LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
+
+              CustomizedTbl <<- unique(sql_query(sql,input))
+
+              total <- length(unique(CustomizedTbl$PERSON_ID))
+              resultTbl <- data.frame(input$CstmGene,unlist(lapply(input$CstmGene, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%x,]$PERSON_ID))}) ))
+              colnames(resultTbl) <- c('Gene', 'Count')
+              resultTbl$Count <- (resultTbl$Count / total) * 100
+              resultTbl
+          }else{
+              sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_p
+                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
+                            WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+                            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                            LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
+              # sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
+              #   A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
+              #   FROM (SELECT * FROM @schema.dbo.variant_occurrence
+              #   WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
+              #   LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+              #   LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+              #   )
+              CustomizedTbl <- unique(sql_query(sql,input))
+              total <- length(unique(CustomizedTbl$PERSON_ID))
+              getcount <- function(gene, hgvsp){
+                  unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
+              }
+              resultTbl <- data.frame(input$CstmGene, input$CstmHGVSp,  getcount(input$CstmGene, input$CstmHGVSp))
+              colnames(resultTbl) <- c('Gene', 'HGVSp','Count')
+              resultTbl$Count <- (resultTbl$Count / total)* 100
+              resultTbl
           }
-          # count <- length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%'EGFR' & CustomizedTbl$HGVS_P%in%temp,]$PERSON_ID))
-          # CustomizedTbl[CustomizedTbl$HGVS_P%in%temp[1],]
-          # data.frame('EGFR', temp, nrow(CustomizedTbl[CustomizedTbl$HGVS_P%in%temp,]) )
-          resultTbl <- data.frame(input$CstmGene, input$CstmHGVSp,  getcount(input$CstmGene, input$CstmHGVSp))
-          colnames(resultTbl) <- c('Gene', 'HGVSp','Count')
-          resultTbl
-          # selected <<- length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%input$CstmGene & CustomizedTbl$HGVS_P%in%input$CstmHGVSp,]$PERSON_ID))
 
 
-          # rbind(selected, length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%input$CstmGene & CustomizedTbl$HGVS_P%in%input$CstmHGVSp,]$PERSON_ID)))
-
-          # length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%"EGFR" & CustomizedTbl$HGVS_P%in%"p.Ala147Thr",]$PERSON_ID))
           #dim(CustomizedTbl)
           #CstmGene = 'EGFR'
           #CstGene = NA
@@ -730,8 +740,8 @@ shiny::shinyApp(
       }) # End of draw.Custom_Result_Table
 
       output$Custom_HVGSp <- renderUI({draw.hgvs_p()})
-      output$Custom_UI <- renderPrint({load.genelist()})
-      output$Custom_Result_Table <- renderTable(draw.Custom_Result_Table(),digits = 0)
+      output$Custom_UI <- renderText({load.genelist()})
+      output$Custom_Result_Table <- renderTable(draw.Custom_Result_Table(),digits = 2)
 
       output$download_custom_tbl <- downloadHandler(
           filename <- "custom.csv" ,
@@ -742,11 +752,13 @@ shiny::shinyApp(
 
       ##### 3-8 Graph
 
-      draw.Graph <- eventReactive(input$Graph, {
-          read.csv(input$file1)
-          input$file2
-          input$file3
-
+      draw.Graph <- eventReactive(input$Show_Graph, {
+          tbl <- read.xlsx(input$file1$datapath,sheetName = 'Sheet1')
+          # tbls <- read.xlsx('C:/Users/K.JunHyeong/Documents/R project/genomic/test.xlsx',sheetName = 'Sheet1')
+          tblss<<-melt(tbl, id.vars = "NA.")
+          ggplot(tblss, aes(variable,value, fill = NA.)) +
+              geom_bar(stat="identity", position="dodge") +
+              coord_flip()
 
 
       }) # End of draw.VariantTable
@@ -755,6 +767,9 @@ shiny::shinyApp(
           filename <- "_plot.pdf" ,
           content = function(file){
               pdf(file, width = 12, height = 6)
+              print(ggplot(tblss, aes(variable,value, fill = NA.)) +
+                  geom_bar(stat="identity", position="dodge") +
+                  coord_flip())
               # Draw_pieplot(Tbl4Gene)
               # print(ggplot(Tbl4Gene, aes(x = "", y = Freq, fill=Var1))+
               #           geom_bar(stat="identity",width=1)+
@@ -767,7 +782,10 @@ shiny::shinyApp(
           }
       )
 
-      output$VariantTable <- renderTable({draw.VariantTable()}, digits = 0)
+      output$Custom_Result_Graph <- renderPlot({draw.Graph()})
+
+
+      #### 3-9 Query
 
           onSessionEnded(function(){
           message("Disconnect server.")
