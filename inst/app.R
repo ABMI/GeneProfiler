@@ -1,6 +1,6 @@
 
 check.packages("xlsx")
-
+check.packages("data.table")
 check.packages("shinyjs")
 check.packages("shinydashboard")
 check.packages("SqlRender")
@@ -45,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP","128.1.99.58")
-                            ,textInput("user","USER","imblock")
-                            ,passwordInput("pw","PASSWORD","mirKJH09!@")
+                            textInput("ip","IP")
+                            ,textInput("user","USER")
+                            ,passwordInput("pw","PASSWORD")
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -192,7 +192,8 @@ shiny::shinyApp(
                                       accept = c(
                                           "text/csv",
                                           "text/comma-separated-values,text/plain",
-                                          ".csv"))
+                                          ".csv")),
+                            radioButtons(inputId = 'fileExt', label = 'File extension', choices = c("csv", "xlsx"), selected = "csv")
                             ,actionButton(inputId = 'Show_Graph', label = 'Go!')
                             ,width = 12),
 
@@ -210,25 +211,36 @@ shiny::shinyApp(
                         titlePanel("Explore Your Graph!"),
 
                         sidebarPanel(
-                            textAreaInput(inputId = "Query_Field",label = "Target Query", value = "
-                                        SELECT B.target_gene_source_value+'_'+A.hgvs_p , count(A.person_id) as input_institution_name
-                                        FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                                          WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                                          LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                                          LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
-                                          WHERE (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Leu858Arg')
-or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Thr790Met')
-or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Leu861Gln')
-or (B.target_gene_source_value = 'EGFR' and A.hgvs_p like 'p.Gly719%')
-or (B.target_gene_source_value = 'EGFR' and A.hgvs_p = 'p.Ser768Ile')
-or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gly12%')
-or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gly13%')
-or (B.target_gene_source_value = 'KRAS' and A.hgvs_p like 'p.Gln61%')
-or (B.target_gene_source_value = 'PIK3CA' and A.hgvs_p like 'p.His1047%')
-or (B.target_gene_source_value = 'BRAF' and A.hgvs_p = 'p.Val600Glu')
-or (B.target_gene_source_value = 'NRAS' and A.hgvs_p = 'p.Gln61Lys')
-GROUP BY B.target_gene_source_value, A.hgvs_p
-ORDER BY B.target_gene_source_value+'_'+A.hgvs_p")
+                            textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value =
+                                              "SELECT target_gene_source_value+'_'+hgvs_p as name,
+		ROUND(COUNT(distinct(person_id))/CONVERT(float,(SELECT COUNT(person_id)
+                                          FROM [@schema].[dbo].[condition_occurrence]
+                                          WHERE person_id IN (SELECT [person_id]
+                                          FROM [@schema].[dbo].[specimen]
+                                          WHERE [anatomic_site_source_value] = 'Lung')
+                                          AND [condition_source_value] IN ('Invasive adenocarcinoma', 'Minimally invasive adenocarcinoma', 'Squamous cell carcinoma'))),4)*100 as fraction
+                                          FROM (SELECT person_id, B.target_gene_source_value, hgvs_p
+                                          FROM [@schema].[dbo].[variant_occurrence] AS A
+                                          LEFT OUTER JOIN dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
+                                          LEFT OUTER JOIN dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
+                                          WHERE ((target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Leu858Arg') OR
+                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Thr790Met') OR
+                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Leu861Gln') OR
+                                          (target_gene_source_value = 'EGFR' AND hgvs_p like 'p.Gly719%') OR
+                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Ser768Ile') OR
+                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gly12%') OR
+                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gly13%') OR
+                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gln61%') OR
+                                          (target_gene_source_value = 'PIK3CA' AND hgvs_p like 'p.His1047%') OR
+                                          (target_gene_source_value = 'BRAF' AND hgvs_p = 'p.Val600Glu') OR
+                                          (target_gene_source_value = 'NRAS' AND hgvs_p = 'p.Gln61Lys')) AND
+                                          A.person_id IN (SELECT person_id
+                                          FROM [@schema].[dbo].[condition_occurrence]
+                                          WHERE person_id IN (SELECT [person_id]
+                                          FROM [@schema].[dbo].[specimen]
+                                          WHERE [anatomic_site_source_value] = 'Lung')
+                                          AND [condition_source_value] IN ('Invasive adenocarcinoma', 'Minimally invasive adenocarcinoma', 'Squamous cell carcinoma'))) AS T
+                                          GROUP BY target_gene_source_value+'_'+hgvs_p")
                             # textOutput(outputId = "Query_Field", label = "Target Query")
                             ,actionButton(inputId = 'Show_Query', label = 'GO!')
                             ,width = 12),
@@ -747,7 +759,6 @@ ORDER BY B.target_gene_source_value+'_'+A.hgvs_p")
               resultTbl
           }
 
-
           #dim(CustomizedTbl)
           #CstmGene = 'EGFR'
           #CstGene = NA
@@ -767,11 +778,16 @@ ORDER BY B.target_gene_source_value+'_'+A.hgvs_p")
       )
 
       ##### 3-8 Graph
-
+      read.csv
       draw.Graph <- eventReactive(input$Show_Graph, {
-          tbl <- read.xlsx(input$file1$datapath,sheetName = 'Sheet1')
-          tblss<<-melt(tbl, id.vars = "NA.")
-          ggplot(tblss, aes(variable,value, fill = NA.)) +
+          if(input$fileExt == 'csv'){
+              tbls <- read.csv(file = input$file1$datapath,header = T)
+              tblss <- melt(tbls, id.vars = "NAME")
+          }else if(input$fileExt == 'xlsx'){
+              tbl <- read.xlsx(input$file1$datapath,sheetName = 'Sheet1')
+              tblss<-melt(tbl, id.vars = "NAME")
+          }
+          ggplot(tblss, aes(variable,value, fill = NAME)) +
               geom_bar(stat="identity", position="dodge") +
               coord_flip()
 
@@ -792,14 +808,14 @@ ORDER BY B.target_gene_source_value+'_'+A.hgvs_p")
 
       #### 3-9 Query
       draw.target <- eventReactive(input$Show_Query, {
-          targetTbl <- sql_query(input$Query_Field, input)
+          targetTbl <<- sql_query(input$Query_Field, input)
           targetTbl
       })
 
       output$download_query_table <- downloadHandler(
           filename <- "queryTable.csv" ,
           content = function(file){
-              write.csv(draw.target(), file, col.names = F)
+              write.csv(draw.target(), file, row.names = F)
           }
       )
       output$Custom_Query_Table <- renderTable(draw.target())
