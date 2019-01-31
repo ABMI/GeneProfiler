@@ -1,6 +1,8 @@
 # G-CDM
 OMOP-CDM Extension for genomic data
 
+![ERD](Image/ERD.png)
+
 # How to run
 
 1. Install genomic package.
