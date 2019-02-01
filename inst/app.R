@@ -45,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP")
-                            ,textInput("user","USER")
-                            ,passwordInput("pw","PASSWORD")
+                            textInput("ip","IP",ip)
+                            ,textInput("user","USER",id)
+                            ,passwordInput("pw","PASSWORD",password)
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -289,7 +289,7 @@ shiny::shinyApp(
       cohort_variant <- cohort_variant[complete.cases(cohort_variant[ , c("TARGET_GENE_SOURCE_VALUE")]), ]
 
       # Create a data frame of random elements to plot
-      inputData <<- data.frame("sample" = cohort_variant$PERSON_ID,
+      inputData <- data.frame("sample" = cohort_variant$PERSON_ID,
                               "gene" = cohort_variant$TARGET_GENE_SOURCE_VALUE,
                               "variant_class" = cohort_variant$VARIANT_FEATURE)
       colnames(inputData) <- c('sample', 'gene', 'variant_class')
@@ -298,7 +298,7 @@ shiny::shinyApp(
       table <- table[order(-table$Freq), ]
 
       # choose the most deleterious to plot with y being defined as the most deleterious
-      most_deleterious <<- as.character(table$Var1)
+      most_deleterious <- as.character(table$Var1)
       GenVisR::waterfall(inputData, fileType="Custom", variant_class_order = most_deleterious, plotMutBurden = FALSE,
                 mainXlabel = TRUE, maxGenes=50, mainGrid = TRUE, mainLabelSize = 1,
                 plot_proportions = TRUE, section_heights = c(0, 400, 60))
@@ -424,7 +424,7 @@ shiny::shinyApp(
         par(mar=c(2,1,1,0))
         par(oma=c(0,1,2,1))
 
-        Tbl4OriginPie <<- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
+        Tbl4OriginPie <- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
         Draw_pieplot(Tbl4OriginPie)
         ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
             geom_bar(stat="identity",width=1)+
@@ -452,7 +452,7 @@ shiny::shinyApp(
           par(mar=c(2,1,1,0))
           par(oma=c(0,1,2,1))
 
-          Tbl4PathogenyPie <<- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
+          Tbl4PathogenyPie <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
           Draw_pieplot(Tbl4PathogenyPie)
           ggplot(Tbl4PathogenyPie, aes(x = "", y = Freq, fill=Var1))+
               geom_bar(stat="identity",width=1)+
@@ -536,7 +536,7 @@ shiny::shinyApp(
                                                  c('Pathogenic/Likely pathogenic', 'Drug response') &
                                                  cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
         Tbl4Gene <- as.data.frame(table(cohort_forGenes$TARGET_GENE_SOURCE_VALUE))
-        Tbl4Gene <<- Tbl4Gene[order(-Tbl4Gene$Freq),]
+        Tbl4Gene <- Tbl4Gene[order(-Tbl4Gene$Freq),]
 
         par(mar=c(0,0,1,0))
         par(oma=c(0,0,2,0))
@@ -629,7 +629,7 @@ shiny::shinyApp(
           if(length(input$CstmGene)>1){
               sql <- readSql("extdata/Multi_gene.sql")
 
-              CustomizedTbl <<- unique(sql_query(sql,input))
+              CustomizedTbl <- unique(sql_query(sql,input))
 
               total <- length(unique(CustomizedTbl$PERSON_ID))
               resultTbl <- data.frame(input$CstmGene,unlist(lapply(input$CstmGene, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%x,]$PERSON_ID))}) ))
@@ -693,7 +693,7 @@ shiny::shinyApp(
 
       #### 3-9 Query
       draw.target <- eventReactive(input$Show_Query, {
-          targetTbl <<- sql_query(input$Query_Field, input)
+          targetTbl <- sql_query(input$Query_Field, input)
           targetTbl
       })
 

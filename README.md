@@ -1,7 +1,8 @@
-# G-CDM
-OMOP-CDM Extension for genomic data
+# GeneProfiler
+Application running on Genomic CDM (G-CDM) for exploring and analysis clinical sequencing data
 
-![ERD](Image/ERD.png)
+![ERD](Image/Figure%202.PNG)
+      
 
 # How to run
 
@@ -11,25 +12,23 @@ Using devtools, install genomic package in Rstudio.
 
 ```
 install.packages("devtools")
-library(devtools)
-install_github("https://github.com/ABMI/G-CDM.git")
+devtools::install_github("https://github.com/ABMI/G-CDM.git")
 ```
 
 (If you want to install other branch, add parameter "package_test")
 
 ```
-install_github("https://github.com/ABMI/G-CDM.git",ref = "package_test")
+install_github("https://github.com/ABMI/G-CDM.git", ref = "package_test")
 ```
 
 Username issue
 
 ```
-install_github("https://github.com/ABMI/G-CDM.git",ref = "package_test", username = "ABMI"G-CDM")
+install_github("https://github.com/ABMI/G-CDM.git", ref = "package_test", username = "ABMI"G-CDM")
 ```
 
 2. Run genomic()
 
 ```
-library(genomic)
-genomic()
+genomic::genomic()
 ```
