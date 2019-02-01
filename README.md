@@ -1,7 +1,7 @@
 # GeneProfiler
 Application running on Genomic CDM (G-CDM) for exploring and analysis clinical sequencing data
 
-![ERD](Image/ERD.png)
+![ERD](Image/Figure 2.PNG)
 
 # How to run
 
