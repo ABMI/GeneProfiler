@@ -212,35 +212,7 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value =
-                                              "SELECT target_gene_source_value+'_'+hgvs_p as name,
-		ROUND(COUNT(distinct(person_id))/CONVERT(float,(SELECT COUNT(person_id)
-                                          FROM [@schema].[dbo].[condition_occurrence]
-                                          WHERE person_id IN (SELECT [person_id]
-                                          FROM [@schema].[dbo].[specimen]
-                                          WHERE [anatomic_site_source_value] = 'Lung')
-                                          AND [condition_source_value] IN ('Invasive adenocarcinoma', 'Minimally invasive adenocarcinoma', 'Squamous cell carcinoma'))),4)*100 as fraction
-                                          FROM (SELECT person_id, B.target_gene_source_value, hgvs_p
-                                          FROM [@schema].[dbo].[variant_occurrence] AS A
-                                          LEFT OUTER JOIN dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                                          LEFT OUTER JOIN dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
-                                          WHERE ((target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Leu858Arg') OR
-                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Thr790Met') OR
-                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Leu861Gln') OR
-                                          (target_gene_source_value = 'EGFR' AND hgvs_p like 'p.Gly719%') OR
-                                          (target_gene_source_value = 'EGFR' AND hgvs_p = 'p.Ser768Ile') OR
-                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gly12%') OR
-                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gly13%') OR
-                                          (target_gene_source_value = 'KRAS' AND hgvs_p like 'p.Gln61%') OR
-                                          (target_gene_source_value = 'PIK3CA' AND hgvs_p like 'p.His1047%') OR
-                                          (target_gene_source_value = 'BRAF' AND hgvs_p = 'p.Val600Glu') OR
-                                          (target_gene_source_value = 'NRAS' AND hgvs_p = 'p.Gln61Lys')) AND
-                                          A.person_id IN (SELECT person_id
-                                          FROM [@schema].[dbo].[condition_occurrence]
-                                          WHERE person_id IN (SELECT [person_id]
-                                          FROM [@schema].[dbo].[specimen]
-                                          WHERE [anatomic_site_source_value] = 'Lung')
-                                          AND [condition_source_value] IN ('Invasive adenocarcinoma', 'Minimally invasive adenocarcinoma', 'Squamous cell carcinoma'))) AS T
-                                          GROUP BY target_gene_source_value+'_'+hgvs_p")
+                                              readSql("extdata/Co_work.sql"))
                             # textOutput(outputId = "Query_Field", label = "Target Query")
                             ,actionButton(inputId = 'Show_Query', label = 'GO!')
                             ,width = 12),
@@ -267,18 +239,12 @@ shiny::shinyApp(
         Connect_DB("sql server", input$ip, input$user, input$pw, input$schema)
     })
     Update.UI <- eventReactive(input$db_load, {
-        sql <- "SELECT A.sequence_alteration
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-            WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+        sql <- readSql("extdata/Sequence_alteration.sql")
         cohort_forMT <- sql_query(sql,input)
         Select_Structual <- table(cohort_forMT$SEQUENCE_ALTERATION)
         Tbl4StructualBar <- as.data.frame(Select_Structual)
 
-        sql <- "SELECT A.variant_feature
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+        sql <- readSql("extdata/Variant_feature.sql")
         cohort_forMT <- sql_query(sql,input)
         Select_Functional <- table(cohort_forMT$VARIANT_FEATURE)
         Tbl4FunctionalBar <- as.data.frame(Select_Functional)
@@ -286,11 +252,7 @@ shiny::shinyApp(
         updateCheckboxGroupInput(session, "str_selector", choices = c("Total", as.character(Tbl4StructualBar$Var1)),selected = input$str_selector)
         updateCheckboxGroupInput(session, "func_selector", choices = c("Total", as.character(Tbl4FunctionalBar$Var1)),selected = input$func_selector)
 
-        sql <- "SELECT B.target_gene_source_value
-        FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+        sql <- readSql("extdata/Gene_setting.sql")
         CustomizedTbl <- sql_query(sql,input)
 
         updateSelectInput(session, "CstmGene", choices = c(as.character(CustomizedTbl$TARGET_GENE_SOURCE_VALUE)),selected = 'EGFR')
@@ -308,10 +270,7 @@ shiny::shinyApp(
     ##### 3-2 WaterFall Plot
     draw.WF <- eventReactive(input$Show_WF, {
 
-      sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_p, A.sequence_alteration, A.variant_feature
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-              WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-              LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+      sql <- readSql("extdata/Waterfall.sql")
       cohort_variant <- sql_query(sql,input)
       # View(cohort_variant)
 
@@ -362,10 +321,7 @@ shiny::shinyApp(
 
       draw.VariantStructualType <- eventReactive(input$Show_VariantStructualType, {
 
-        sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_p, A.sequence_alteration, A.variant_feature
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+        sql <- readSql("extdata/Waterfall.sql")
         cohort_forMT <- sql_query(sql,input)
 
         Select_Structual <- table(cohort_forMT$SEQUENCE_ALTERATION)
@@ -378,10 +334,7 @@ shiny::shinyApp(
         })
       draw.VariantStructualTbl <- eventReactive(input$Show_VariantStructualType, {
 
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_p, A.sequence_alteration, A.variant_feature
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+          sql <- readSql("extdata/Waterfall.sql")
           cohort_forMT <- sql_query(sql,input)
           Select_Structual <- as.data.frame(table(cohort_forMT$SEQUENCE_ALTERATION))
           if(is.element("Total",input$str_selector)){
@@ -396,10 +349,7 @@ shiny::shinyApp(
 
       draw.VariantFunctionalType <- eventReactive(input$Show_VariantFunctionalType, {
 
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_p, A.sequence_alteration, A.variant_feature
-              FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+          sql <- readSql("extdata/Waterfall.sql")
           cohort_forMT <- sql_query(sql,input)
 
           Select_Functional <- table(cohort_forMT$VARIANT_FEATURE)
@@ -414,10 +364,7 @@ shiny::shinyApp(
 
       draw.VariantFunctionalTbl <- eventReactive(input$Show_VariantFunctionalType, {
 
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.hgvs_p, A.sequence_alteration, A.variant_feature
-          FROM (SELECT * FROM @schema.dbo.variant_occurrence
-          WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
-          LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id"
+          sql <- readSql("extdata/Waterfall.sql")
           cohort_forMT <- sql_query(sql,input)
           Select_Functional <- as.data.frame(table(cohort_forMT$VARIANT_FEATURE))
           if(is.element("Total",input$func_selector)){
@@ -470,13 +417,8 @@ shiny::shinyApp(
 
       draw.OriginPlot <- eventReactive(input$Show_Origin, {
 
-        sql <- "SELECT A.person_id, B.target_gene_source_value, A.variant_exon_number,
-                       A.hgvs_p, A.sequence_alteration, A.variant_feature,
-                       C.variant_origin, C.variant_pathogeny
-                FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                      WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+        sql <- readSql("extdata/PathogenyPlot.sql")
+
         cohort_forPathogeny <- sql_query(sql,input)
 
         par(mar=c(2,1,1,0))
@@ -484,29 +426,18 @@ shiny::shinyApp(
 
         Tbl4OriginPie <<- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
         Draw_pieplot(Tbl4OriginPie)
-        test <- ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
+        ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
             geom_bar(stat="identity",width=1)+
             coord_polar("y",start = 0) +
             ggtitle("Variant Origin")+
             geom_col(color = 'black', width = 100)+
             theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
             geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.5))
-        print(test)
-
-
-        # pie(slices, lbls , radius=0.6,
-        #     main="Variant Origin", clockwise = TRUE)
 
       })
 
       draw.OriginTable <- eventReactive(input$Show_Origin, {
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.variant_exon_number,
-                       A.hgvs_p, A.sequence_alteration, A.variant_feature,
-                       C.variant_origin, C.variant_pathogeny
-                FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                      WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+          sql <- readSql("extdata/PathogenyPlot.sql")
           cohort_forPathogeny <- sql_query(sql,input)
 
           Tblorigin <- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
@@ -515,13 +446,7 @@ shiny::shinyApp(
 
       draw.PathogenyPlot <- eventReactive(input$Show_Pathogeny, {
 
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.variant_exon_number,
-          A.hgvs_p, A.sequence_alteration, A.variant_feature,
-          C.variant_origin, C.variant_pathogeny
-          FROM (SELECT * FROM @schema.dbo.variant_occurrence
-          WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-          LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-          LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+          sql <- readSql("extdata/PathogenyPlot.sql")
           cohort_forPathogeny <- sql_query(sql,input)
 
           par(mar=c(2,1,1,0))
@@ -536,18 +461,10 @@ shiny::shinyApp(
               geom_col(color = 'black', width = 100)+
               theme(plot.title = element_text(hjust = 0.5),legend.position="none")+
               geom_text_repel(aes(y= Freq, label = lbls), position = position_stack(vjust = 0.6))
-          # pie(slices, lbls , radius=0.6,
-          #     main="Variant Pathogeny", clockwise = TRUE )
       })
 
       draw.PathogenyTable <- eventReactive(input$Show_Pathogeny, {
-          sql <- "SELECT A.person_id, B.target_gene_source_value, A.variant_exon_number,
-                       A.hgvs_p, A.sequence_alteration, A.variant_feature,
-                       C.variant_origin, C.variant_pathogeny
-                FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                      WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+          sql <- readSql("extdata/PathogenyPlot.sql")
           cohort_forPathogeny <- sql_query(sql,input)
 
           Tblpathogeny <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
@@ -610,13 +527,7 @@ shiny::shinyApp(
 
       draw.GenePlot <- eventReactive(input$Show_GenePlot, {
 
-        sql <- "SELECT A.person_id, B.target_gene_source_value, A.variant_exon_number,
-        A.hgvs_p, A.sequence_alteration, A.variant_feature,
-        C.variant_origin, C.variant_pathogeny
-        FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+        sql <- readSql("extdata/PathogenyPlot.sql")
 
         cohort_forPathogeny <- sql_query(sql,input)
         # View(cohort_forPathogeny)
@@ -663,13 +574,7 @@ shiny::shinyApp(
 
       draw.VariantTable <- eventReactive(input$Show_VariantTable, {
 
-        sql <- "SELECT A.person_id as int, B.target_gene_source_value, A.variant_exon_number,
-        A.hgvs_p, A.sequence_alteration, A.variant_feature,
-        C.variant_origin, C.variant_pathogeny
-        FROM (SELECT * FROM @schema.dbo.variant_occurrence
-        WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-        LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-        LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
+        sql <- readSql("extdata/PathogenyPlot.sql")
         cohort_forPathogeny <- sql_query(sql,input)
 
         cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
@@ -722,11 +627,7 @@ shiny::shinyApp(
 
       draw.Custom_Result_Table <- eventReactive(input$Show_Custom, {
           if(length(input$CstmGene)>1){
-              sql <- paste0("SELECT A.person_id, B.target_gene_source_value
-                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                            WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                            LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
+              sql <- readSql("extdata/Multi_gene.sql")
 
               CustomizedTbl <<- unique(sql_query(sql,input))
 
@@ -736,34 +637,19 @@ shiny::shinyApp(
               resultTbl$Count <- (resultTbl$Count / total) * 100
               resultTbl
           }else{
-              sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_p
-                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                            WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                            LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id")
-              # sql <- paste0("SELECT A.person_id, B.target_gene_source_value, A.hgvs_c, A.hgvs_p,
-              #   A.sequence_alteration, A.variant_feature, C.variant_origin, C.variant_pathogeny
-              #   FROM (SELECT * FROM @schema.dbo.variant_occurrence
-              #   WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-              #   LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-              #   LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id"
-              #   )
+              sql <- readSql("extdata/Single_gene.sql")
+
               CustomizedTbl <- unique(sql_query(sql,input))
               total <- length(unique(CustomizedTbl$PERSON_ID))
               getcount <- function(gene, hgvsp){
                   unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
               }
               resultTbl <- data.frame(input$CstmGene, input$CstmHGVSp,  getcount(input$CstmGene, input$CstmHGVSp))
-              colnames(resultTbl) <- c('Gene', 'HGVSp','Count')
-              resultTbl$Count <- (resultTbl$Count / total)* 100
+              colnames(resultTbl) <- c('Gene', 'HGVSp','Fraction')
+              resultTbl$Fraction <- (resultTbl$Fraction / total)* 100
               resultTbl
           }
 
-          #dim(CustomizedTbl)
-          #CstmGene = 'EGFR'
-          #CstGene = NA
-          #CstmHGVSp = 'p.Leu858Arg'
-          #CstmHGVSp = NA
 
       }) # End of draw.Custom_Result_Table
       output$Custom_HVGSp <- renderUI(draw.hgvs_p())
@@ -778,7 +664,6 @@ shiny::shinyApp(
       )
 
       ##### 3-8 Graph
-      read.csv
       draw.Graph <- eventReactive(input$Show_Graph, {
           if(input$fileExt == 'csv'){
               tbls <- read.csv(file = input$file1$datapath,header = T)
@@ -794,7 +679,7 @@ shiny::shinyApp(
       }) # End of draw.VariantTable
 
       output$download_custom_plot <- downloadHandler(
-          filename <- "_plot.pdf" ,
+          filename <- "Custom_plot.pdf" ,
           content = function(file){
               pdf(file, width = 12, height = 6)
               print(ggplot(tblss, aes(variable,value, fill = NA.)) +
