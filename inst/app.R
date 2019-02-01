@@ -29,8 +29,8 @@ shiny::shinyApp(
                                  menuItem('Gene', tabName='GenePlot'),
                                  menuItem('Variant', tabName='VariantTable'),
                                  menuItem('Search Yours', tabName='Search'),
-                                 menuItem('Graph', tabName='Graph'),
-                                 menuItem('Query', tabName='Query')
+                                 menuItem('Query', tabName='Query'),
+                                 menuItem('Graph', tabName='Graph')
                                  )),
 
     #3
@@ -45,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP",ip)
-                            ,textInput("user","USER",id)
-                            ,passwordInput("pw","PASSWORD",password)
+                            textInput("ip","IP")
+                            ,textInput("user","USER")
+                            ,passwordInput("pw","PASSWORD")
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -182,7 +182,27 @@ shiny::shinyApp(
                         downloadButton(outputId = 'download_custom_tbl', label = "Download Custom Table")
                     )),
 
-            # 3-8 Search Graph
+            # 3-8 Search Query
+            tabItem(tabName = "Query",
+                    fluidRow(
+                        titlePanel("Explore Your Graph!"),
+
+                        sidebarPanel(
+                            textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value =
+                                              readSql("extdata/Co_work.sql"))
+                            # textOutput(outputId = "Query_Field", label = "Target Query")
+                            ,actionButton(inputId = 'Show_Query', label = 'GO!')
+                            ,width = 12),
+
+                        mainPanel(
+                            # plotOutput(outputId = "Custom_Result_Plot"),
+                            tableOutput(outputId = "Custom_Query_Table"),width =12)
+                    ),fluidRow(
+                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
+                        downloadButton(outputId = 'download_query_table', label = "Download query table")
+                    )),
+
+            # 3-9 Search Graph
             tabItem(tabName = "Graph",
                     fluidRow(
                         titlePanel("Explore Your Graph!"),
@@ -203,26 +223,6 @@ shiny::shinyApp(
                     ),fluidRow(
                         # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
                         downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot")
-                    )),
-
-            # 3-9 Search Query
-            tabItem(tabName = "Query",
-                    fluidRow(
-                        titlePanel("Explore Your Graph!"),
-
-                        sidebarPanel(
-                            textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value =
-                                              readSql("extdata/Co_work.sql"))
-                            # textOutput(outputId = "Query_Field", label = "Target Query")
-                            ,actionButton(inputId = 'Show_Query', label = 'GO!')
-                            ,width = 12),
-
-                        mainPanel(
-                            # plotOutput(outputId = "Custom_Result_Plot"),
-                            tableOutput(outputId = "Custom_Query_Table"),width =12)
-                    ),fluidRow(
-                        # downloadButton(outputId = 'download_custom_plot', label = "Download Custom Plot"),
-                        downloadButton(outputId = 'download_query_table', label = "Download query table")
                     ))
 
         ))), # End of dashboardPage
@@ -522,7 +522,6 @@ shiny::shinyApp(
       output$Pathogeny_Table <- renderTable({draw.PathogenyTable()})
       output$Origin_Table <- renderTable({draw.OriginTable()})
 
-
       ##### 3-5 Pathogeny & Drug Response Genes
 
       draw.GenePlot <- eventReactive(input$Show_GenePlot, {
@@ -599,8 +598,6 @@ shiny::shinyApp(
 
       output$VariantTable <- renderTable({draw.VariantTable()}, digits = 0)
 
-
-
       ##### 3-7 Search
 
       # Custom_Result_Table
@@ -663,7 +660,21 @@ shiny::shinyApp(
           }
       )
 
-      ##### 3-8 Graph
+      #### 3-8 Query
+      draw.target <- eventReactive(input$Show_Query, {
+          targetTbl <- sql_query(input$Query_Field, input)
+          targetTbl
+      })
+
+      output$download_query_table <- downloadHandler(
+          filename <- "queryTable.csv" ,
+          content = function(file){
+              write.csv(draw.target(), file, row.names = F)
+          }
+      )
+      output$Custom_Query_Table <- renderTable(draw.target())
+
+      ##### 3-9 Graph
       draw.Graph <- eventReactive(input$Show_Graph, {
           if(input$fileExt == 'csv'){
               tbls <- read.csv(file = input$file1$datapath,header = T)
@@ -691,19 +702,6 @@ shiny::shinyApp(
 
       output$Custom_Result_Graph <- renderPlot({draw.Graph()})
 
-      #### 3-9 Query
-      draw.target <- eventReactive(input$Show_Query, {
-          targetTbl <- sql_query(input$Query_Field, input)
-          targetTbl
-      })
-
-      output$download_query_table <- downloadHandler(
-          filename <- "queryTable.csv" ,
-          content = function(file){
-              write.csv(draw.target(), file, row.names = F)
-          }
-      )
-      output$Custom_Query_Table <- renderTable(draw.target())
           onSessionEnded(function(){
           message("Disconnect server.")
           DatabaseConnector::disconnect(connection)
