@@ -1,5 +1,5 @@
 # GeneProfiler
-Application running on Genomic CDM (G-CDM) for exploring and analysis clinical sequencing data
+Application running on [Genomic CDM (G-CDM)](https://github.com/ABMI/GeneProfiler/wiki) for exploring and analysis clinical sequencing data
 
 # Explore Your Data
 ![ERD](Image/exploringData.png)
