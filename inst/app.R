@@ -188,7 +188,9 @@ shiny::shinyApp(
                         titlePanel("Explore Your Graph!"),
 
                         sidebarPanel(
+
                             textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value = readSql("extdata/Co_work.sql"))
+
                             # textOutput(outputId = "Query_Field", label = "Target Query")
                             ,actionButton(inputId = 'Show_Query', label = 'GO!')
                             ,width = 12),
