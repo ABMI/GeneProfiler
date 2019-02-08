@@ -45,9 +45,9 @@ shiny::shinyApp(
 
                         sidebarPanel(
                             #input text to db information
-                            textInput("ip","IP",ip)
-                            ,textInput("user","USER",id)
-                            ,passwordInput("pw","PASSWORD",password)
+                            textInput("ip","IP")
+                            ,textInput("user","USER")
+                            ,passwordInput("pw","PASSWORD")
                             ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
                             ,actionButton("db_load","Load DB")
@@ -188,8 +188,9 @@ shiny::shinyApp(
                         titlePanel("Explore Your Graph!"),
 
                         sidebarPanel(
-                            textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value =
-                                              readSql("extdata/Co_work.sql"))
+
+                            textAreaInput(inputId = "Query_Field",label = "Target Query", height = '400px',value = readSql("extdata/Co_work.sql"))
+
                             # textOutput(outputId = "Query_Field", label = "Target Query")
                             ,actionButton(inputId = 'Show_Query', label = 'GO!')
                             ,width = 12),
@@ -619,7 +620,7 @@ shiny::shinyApp(
       })
 
       load.genelist <- eventReactive(input$Add_HVGSp, {
-          temp <- paste0(input$CstmGene , input$CstmHGVSp, collapse = "\n")
+          genelist <- paste0(input$CstmGene , input$CstmHGVSp, collapse = "\n")
       })
 
       draw.Custom_Result_Table <- eventReactive(input$Show_Custom, {
@@ -683,8 +684,12 @@ shiny::shinyApp(
               tbl <- read.xlsx(input$file1$datapath,sheetName = 'Sheet1')
               tblss<-melt(tbl, id.vars = "NAME")
           }
-          ggplot(tblss, aes(variable,value, fill = NAME)) +
+
+          ggplot(tblss, aes(NAME,value, fill = variable)) +
               geom_bar(stat="identity", position="dodge") +
+              geom_text(aes(label=value), vjust=-0.3, size= 2.5, position = position_dodge(0.75)) +
+              ylab("Frequency of actionable mutation (%)") +
+              labs(x = NULL, fill = "Institution")+
               coord_flip()
 
       }) # End of draw.VariantTable
