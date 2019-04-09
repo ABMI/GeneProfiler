@@ -33,5 +33,6 @@ install_github("https://github.com/ABMI/G-CDM.git", ref = "package_test", userna
 2. Run genomic()
 
 ```
+library(genomic)
 genomic::genomic()
 ```
