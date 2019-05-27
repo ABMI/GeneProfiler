@@ -8,7 +8,13 @@
 #' @example sql_query(sql)
 
 sql_query <- function(sql,input){
-    sql <- SqlRender::renderSql(sql, schema=input$schema, Cohort_table=input$Cohort_table)$sql
+    if(input$Cohort_definition_id == '')
+    {
+        sql <- SqlRender::renderSql(sql, schema=input$schema, Cohort_table=input$Cohort_table, Cohort_definition_id='\'%\'')$sql
+    }
+    else{
+        sql <- SqlRender::renderSql(sql, schema=input$schema, Cohort_table=input$Cohort_table, Cohort_definition_id=input$Cohort_definition_id)$sql
+    }
     sql <- SqlRender::translateSql(sql, targetDialect=connectionDetails$dbms)$sql
     return(DatabaseConnector::querySql(connection, sql))
 }

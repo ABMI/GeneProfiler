@@ -1,5 +1,5 @@
-SELECT A.person_id, B.target_gene_source_value
-                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                            WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                            LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                            LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
+SELECT A.person_id, B.target_gene1_symbol
+FROM (SELECT person_id, specimen_id FROM @schema.dbo.specimen
+WHERE specimen_id IN (SELECT specimen_id FROM variant_occurrence) AND person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table WHERE cohort_definition_id like @Cohort_definition_id)) A
+LEFT OUTER JOIN @schema.dbo.variant_occurrence B ON A.specimen_id = B.specimen_id
+LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON B.variant_occurrence_id = C.variant_occurrence_id

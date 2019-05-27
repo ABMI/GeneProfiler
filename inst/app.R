@@ -48,8 +48,9 @@ shiny::shinyApp(
                             textInput("ip","IP")
                             ,textInput("user","USER")
                             ,passwordInput("pw","PASSWORD")
-                            ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v3')
+                            ,textInput("schema","GCDM Database", 'SSJ_GCDM_AJOU_v1')
                             ,textInput("Cohort_table","Cohort Table", 'cohort')
+                            ,textInput("Cohort_definition_id","Cohort Definition Id", '')
                             ,actionButton("db_load","Load DB")
                             ,width=10),
 
@@ -254,7 +255,7 @@ shiny::shinyApp(
         sql <- readSql("extdata/Gene_setting.sql")
         CustomizedTbl <- sql_query(sql,input)
 
-        updateSelectInput(session, "CstmGene", choices = c(as.character(CustomizedTbl$TARGET_GENE_SOURCE_VALUE)),selected = 'EGFR')
+        updateSelectInput(session, "CstmGene", choices = c(as.character(CustomizedTbl$TARGET_GENE1_SYMBOL)))
         # updateSelectInput(session, "CstmHGVSp", choices = c(as.character(CustomizedTbl$HGVS_P)), selected = 'p.Leu858Arg')
         removeModal()
         showModal(modalDialog(title="Load data","Initializing Complete.",footer = modalButton("OK")))
@@ -285,11 +286,11 @@ shiny::shinyApp(
 
       cohort_variant <- cohort_variant[cohort_variant$VARIANT_FEATURE!='Other', ]
 
-      cohort_variant <- cohort_variant[complete.cases(cohort_variant[ , c("TARGET_GENE_SOURCE_VALUE")]), ]
+      cohort_variant <- cohort_variant[complete.cases(cohort_variant[ , c("TARGET_GENE1_SYMBOL")]), ]
 
       # Create a data frame of random elements to plot
       inputData <- data.frame("sample" = cohort_variant$PERSON_ID,
-                              "gene" = cohort_variant$TARGET_GENE_SOURCE_VALUE,
+                              "gene" = cohort_variant$TARGET_GENE1_SYMBOL,
                               "variant_class" = cohort_variant$VARIANT_FEATURE)
       colnames(inputData) <- c('sample', 'gene', 'variant_class')
 
@@ -423,7 +424,7 @@ shiny::shinyApp(
         par(mar=c(2,1,1,0))
         par(oma=c(0,1,2,1))
 
-        Tbl4OriginPie <- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
+        Tbl4OriginPie <- as.data.frame(table(cohort_forPathogeny$VALUE_AS_STRING))
         Draw_pieplot(Tbl4OriginPie)
         ggplot(Tbl4OriginPie, aes(x = "", y = Freq, fill=Var1))+
             geom_bar(stat="identity",width=1)+
@@ -439,7 +440,7 @@ shiny::shinyApp(
           sql <- readSql("extdata/PathogenyPlot.sql")
           cohort_forPathogeny <- sql_query(sql,input)
 
-          Tblorigin <- as.data.frame(table(cohort_forPathogeny$VARIANT_ORIGIN))
+          Tblorigin <- as.data.frame(table(cohort_forPathogeny$VALUE_AS_STRING))
           Tblorigin
       }) # End of draw.Origin
 
@@ -451,7 +452,7 @@ shiny::shinyApp(
           par(mar=c(2,1,1,0))
           par(oma=c(0,1,2,1))
 
-          Tbl4PathogenyPie <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
+          Tbl4PathogenyPie <- as.data.frame(table(cohort_forPathogeny$VALUE_AS_STRING))
           Draw_pieplot(Tbl4PathogenyPie)
           ggplot(Tbl4PathogenyPie, aes(x = "", y = Freq, fill=Var1))+
               geom_bar(stat="identity",width=1)+
@@ -466,12 +467,12 @@ shiny::shinyApp(
           sql <- readSql("extdata/PathogenyPlot.sql")
           cohort_forPathogeny <- sql_query(sql,input)
 
-          Tblpathogeny <- as.data.frame(table(cohort_forPathogeny$VARIANT_PATHOGENY))
+          Tblpathogeny <- as.data.frame(table(cohort_forPathogeny$VALUE_AS_STRING))
           Tblpathogeny
       }) # End of draw.Pathogeny
 
       output$download_origin_plot <- downloadHandler(
-          filename <- "variant_origin.pdf" ,
+          filename <- "VALUE_AS_STRING.pdf" ,
           content = function(file){
               pdf(file, width = 12, height = 6)
               Draw_pieplot(Tbl4OriginPie)
@@ -487,14 +488,14 @@ shiny::shinyApp(
           ,contentType = "pdf"
       )
       output$download_origin_tbl <- downloadHandler(
-          filename = "variant_origin.csv",
+          filename = "VALUE_AS_STRING.csv",
           content = function(file) {
               write.csv(draw.OriginTable(), file)
           }
       )
 
       output$download_pathogeny_plot <- downloadHandler(
-          filename <- "variant_pathogeny.pdf" ,
+          filename <- "VALUE_AS_STRING.pdf" ,
           content = function(file){
               pdf(file, width = 12, height = 6)
               Draw_pieplot(Tbl4PathogenyPie)
@@ -509,7 +510,7 @@ shiny::shinyApp(
           }
       )
       output$download_pathogeny_tbl <- downloadHandler(
-          filename = "variant_pathogeny.csv",
+          filename = "VALUE_AS_STRING.csv",
           content = function(file) {
               write.csv(draw.PathogenyTable(), file)
           }
@@ -529,11 +530,10 @@ shiny::shinyApp(
 
         cohort_forPathogeny <- sql_query(sql,input)
         # View(cohort_forPathogeny)
-
-        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
+        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VALUE_AS_STRING %in%
                                                  c('Pathogenic/Likely pathogenic', 'Drug response') &
-                                                 cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
-        Tbl4Gene <- as.data.frame(table(cohort_forGenes$TARGET_GENE_SOURCE_VALUE))
+                                                 cohort_forPathogeny$VALUE_AS_STRING %in% 'Pathogenic/Likely pathogenic', ]
+        Tbl4Gene <- as.data.frame(table(cohort_forGenes$TARGET_GENE1_SYMBOL))
         Tbl4Gene <- Tbl4Gene[order(-Tbl4Gene$Freq),]
 
         par(mar=c(0,0,1,0))
@@ -575,13 +575,13 @@ shiny::shinyApp(
         sql <- readSql("extdata/PathogenyPlot.sql")
         cohort_forPathogeny <- sql_query(sql,input)
 
-        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VARIANT_PATHOGENY %in%
+        cohort_forGenes <- cohort_forPathogeny[cohort_forPathogeny$VALUE_AS_STRING %in%
                                                   c('Pathogenic/Likely pathogenic', 'Drug response') &
-                                                  cohort_forPathogeny$VARIANT_ORIGIN %in% 'somatic', ]
+                                                  cohort_forPathogeny$VALUE_AS_STRING %in% 'Pathogenic/Likely pathogenic', ]
 
 
         colnames(cohort_forGenes) <- c('Person Id', 'Gene', 'Exon', 'HGVSp',
-                                       'Sequence Alteration', 'Variant Feature', 'Origin', 'Pathogeny')
+                                       'Sequence Alteration', 'Variant Feature', 'Origin')
         cohort_forGenes <- cohort_forGenes[order(cohort_forGenes$Gene),]
         cohort_forGenes
 
@@ -604,12 +604,12 @@ shiny::shinyApp(
           if(length(input$CstmGene)>1){
               updateSelectInput(session, "CstmHGVSp", choices = "" , selected = "")
           }else{
-              sql <- paste0("SELECT distinct(B.target_gene_source_value), A.hgvs_p
-                    FROM (SELECT * FROM @schema.dbo.variant_occurrence
-                    WHERE person_id IN (SELECT subject_id FROM @schema.dbo.@Cohort_table)) A
-                    LEFT OUTER JOIN @schema.dbo.[target_gene] B ON A.target_gene_id = B.target_gene_concept_id
-                    LEFT OUTER JOIN @schema.dbo.[variant_annotation] C ON A.variant_occurrence_id = C.variant_occurrence_id
-                    WHERE B.target_gene_source_value = '",input$CstmGene,"'")
+              sql <- paste0("SELECT distinct(B.target_gene1_symbol), B.hgvs_p
+                    FROM (SELECT person_id, specimen_id FROM specimen
+                            WHERE person_id IN (SELECT distinct subject_id FROM @schema.dbo.@Cohort_table)) A
+                            LEFT OUTER JOIN @schema.dbo.variant_occurrence B ON A.specimen_id = B.specimen_id
+                            LEFT OUTER JOIN @schema.dbo.variant_annotation C ON B.variant_occurrence_id = C.variant_occurrence_id
+                    WHERE B.target_gene1_symbol = '",input$CstmGene,"'")
               CustomizedTbl <- sql_query(sql,input)
 
               updateSelectInput(session, "CstmHGVSp", choices = unique(CustomizedTbl$HGVS_P))
@@ -628,7 +628,7 @@ shiny::shinyApp(
               CustomizedTbl <- unique(sql_query(sql,input))
 
               total <- length(unique(CustomizedTbl$PERSON_ID))
-              resultTbl <- data.frame(input$CstmGene,unlist(lapply(input$CstmGene, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%x,]$PERSON_ID))}) ))
+              resultTbl <- data.frame(input$CstmGene,unlist(lapply(input$CstmGene, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE1_SYMBOL%in%x,]$PERSON_ID))}) ))
               colnames(resultTbl) <- c('Gene', 'Count')
               resultTbl$Count <- (resultTbl$Count / total) * 100
               resultTbl
@@ -638,7 +638,7 @@ shiny::shinyApp(
               CustomizedTbl <- unique(sql_query(sql,input))
               total <- length(unique(CustomizedTbl$PERSON_ID))
               getcount <- function(gene, hgvsp){
-                  unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE_SOURCE_VALUE%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
+                  unlist(lapply(hgvsp, function(x){length(unique(CustomizedTbl[CustomizedTbl$TARGET_GENE1_SYMBOL%in%gene & CustomizedTbl$HGVS_P%in%x,]$PERSON_ID))}) )
               }
               resultTbl <- data.frame(input$CstmGene, input$CstmHGVSp,  getcount(input$CstmGene, input$CstmHGVSp))
               colnames(resultTbl) <- c('Gene', 'HGVSp','Fraction')
