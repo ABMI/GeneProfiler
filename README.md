@@ -15,19 +15,19 @@ Using devtools, install genomic package in Rstudio.
 
 ```
 install.packages("devtools")
-devtools::install_github("https://github.com/ABMI/G-CDM.git")
+devtools::install_github("https://github.com/ABMI/GeneProfiler.git")
 ```
 
-(If you want to install other branch, add parameter "package_test")
+(If you want to install other branch, add parameter)
 
 ```
-install_github("https://github.com/ABMI/G-CDM.git", ref = "package_test")
+install_github("https://github.com/ABMI/G-CDM.git", ref = "develop")
 ```
 
 Username issue
 
 ```
-install_github("https://github.com/ABMI/G-CDM.git", ref = "package_test", username = "ABMI"G-CDM")
+install_github("https://github.com/ABMI/Geneprofiler.git", ref = "develop", username = "ABMI"GeneProfiler")
 ```
 
 2. Run genomic()
