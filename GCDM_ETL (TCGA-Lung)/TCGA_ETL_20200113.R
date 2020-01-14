@@ -14,10 +14,10 @@ source('scripts/scripts_20200113.R', encoding='UTF-8')
 ## DB options are the same for DatabaseConnector
 
 dbms = "sql server"
-server = "128.1.99.58"
+server = "server"
 schema = "GCDM_TCGA.dbo"
-user="ssj"
-password="ssj1225"
+user="id"
+password="pw"
 
 ddlFile = "sql/CDMG-DDL-SQLSERVER (TCGA_20200113).sql"
 variantDir = "data/variant" # The Dir _variant.xlsx files exists
