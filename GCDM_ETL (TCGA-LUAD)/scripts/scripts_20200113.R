@@ -4,7 +4,7 @@
 # - DB Connection
 # - DROP GCDM Tables
 # - Create GCDM Tables
-# - Insert XLSX data into GCDM
+# - Insert genomic data into GCDM
 #   (0) genomic_test
 #   (1) target_gene
 #   (2) variant_occurrence
